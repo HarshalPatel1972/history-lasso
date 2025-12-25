@@ -153,11 +153,13 @@ body {
 }
 
 .date-header {
-    padding: 28px 20px 10px 42px; /* Indented alignment */
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 0.02em;
+    padding: 32px 20px 12px 42px; /* More top padding for clear separation */
+    font-size: 15px; /* Bigger font */
+    font-weight: 700; /* Bold */
+    color: var(--text-primary); /* Darker color for visibility */
+    letter-spacing: 0.01em;
+    position: sticky; /* Optional: Makes it stick while scrolling? User asked for clarity. Let's keep it static but bold. */
+    /* top: 60px; z-index: 10; background: var(--bg-page); -- might be too much */
 }
 
 .history-row {

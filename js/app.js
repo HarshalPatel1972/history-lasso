@@ -148,11 +148,15 @@ function setupSearch() {
     searchInput.addEventListener('input', (e) => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-            lastDateHeader = null;
+            // Hard Reset for Search
+            lastDateHeader = null; 
+            
             // Clear content but keep sentinel
-            while(container.children.length > 1) { 
-                container.removeChild(container.firstChild); 
-            }
+            // NOTE: This logic was previously flawed if multiple sentinels existed or if DOM wasn't cleared cleanly.
+            // Safer approach:
+            container.innerHTML = ''; 
+            container.appendChild(sentinel);
+
             loader.reset(e.target.value);
             loadNextBatch();
         }, 300);
