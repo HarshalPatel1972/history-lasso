@@ -1,14 +1,13 @@
 /**
  * APP ENGINE (js/app.js)
- * v5.0 - Final Logic Fix: Global Date Persistence (User Verified)
+ * v6.0 - DEEP FIX: Bulletproof Date Header Logic with Guards
  */
 
 import { HistoryLoader } from './data.js';
 
-// --- 1. GLOBAL STATE (PERSISTENT) ---
-// This variable tracks the last rendered date header string across
-// multiple batches. It MUST be defined here to survive function calls.
+// --- GLOBAL STATE (PERSISTENT ACROSS BATCHES) ---
 let lastRenderedDateLabel = null;
+let isCurrentlyRendering = false; // Guard against race conditions
 
 const loader = new HistoryLoader();
 let selectoInstance = null;
@@ -26,16 +25,21 @@ const btnLasso = document.getElementById('btn-lasso');
  * ENTRY POINT
  */
 async function init() {
-    console.log("App: Initializing v5.0...");
+    console.log("🚀 App: Initializing v6.0 (Deep Fix)...");
     
     // Initial Reset
     resetState();
     
-    // Start Infinite Scroll Observer
-    // Using a safe threshold to prevent double-firing
+    // Infinite Scroll Observer with guard
+    let observerTimeout = null;
     const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) {
-            loadNextBatch();
+        if (entries[0].isIntersecting && !isCurrentlyRendering) {
+            // Debounce rapid fire
+            clearTimeout(observerTimeout);
+            observerTimeout = setTimeout(() => {
+                console.log("📜 Scroll Sentinel triggered");
+                loadNextBatch();
+            }, 100);
         }
     }, { root: null, rootMargin: '400px', threshold: 0.1 });
     
@@ -51,35 +55,48 @@ async function init() {
 }
 
 /**
- * CORE LOGIC: RESET
- * Clears DOM and Resets Global State.
+ * RESET STATE
  */
 function resetState(searchQuery = null) {
-    // 1. Reset Global Date Tracker
+    console.log("🔄 Resetting state...");
     lastRenderedDateLabel = null;
+    isCurrentlyRendering = false;
     
-    // 2. Clear Container (Keep Sentinel)
     container.innerHTML = '';
     container.appendChild(sentinel);
     
-    // 3. Reset Loader
     loader.reset(searchQuery);
 }
 
 /**
- * CORE LOGIC: FETCH & RENDER
+ * LOAD NEXT BATCH
  */
 async function loadNextBatch() {
-    // Prevent multiple calls if loader is busy (handled inside loader usually, but good to be safe)
-    if (loader.isLoading) return; 
+    if (isCurrentlyRendering) {
+        console.warn("⚠️ Already rendering, skipping duplicate call");
+        return;
+    }
+    if (loader.isLoading) {
+        console.warn("⚠️ Loader busy, skipping");
+        return;
+    }
 
+    isCurrentlyRendering = true;
     const items = await loader.loadNextBatch(100);
     renderRows(items);
+    isCurrentlyRendering = false;
 }
 
+/**
+ * RENDER ROWS (The Critical Function)
+ */
 function renderRows(items) {
-    if (!items || items.length === 0) return;
+    if (!items || items.length === 0) {
+        console.log("✅ No more items to render");
+        return;
+    }
 
+    console.log(`📦 Rendering ${items.length} items...`);
     const fragment = document.createDocumentFragment();
     
     // Date Helpers
@@ -88,7 +105,7 @@ function renderRows(items) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    items.forEach(item => {
+    items.forEach((item, index) => {
         // --- DATE HEADER LOGIC ---
         const dateObj = new Date(item.lastVisitTime);
         const itemDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
@@ -109,19 +126,21 @@ function renderRows(items) {
             currentLabel = "Yesterday - " + datePart;
         }
 
-        // --- STRICT GLOBAL CHECK ---
-        // "Is this item's date the same as the last header I rendered?"
+        // Normalize (trim whitespace to prevent false mismatches)
+        currentLabel = currentLabel.trim();
+
+        // --- THE CRITICAL CHECK ---
         if (currentLabel !== lastRenderedDateLabel) {
-            // NO: Print new Date Header.
+            console.log(`📅 New Date Header: "${currentLabel}" (Previous: "${lastRenderedDateLabel}")`);
+            
             const header = document.createElement('div');
             header.className = 'date-header';
             header.textContent = currentLabel;
             fragment.appendChild(header);
             
-            // UPDATE GLOBAL STATE
+            // UPDATE GLOBAL STATE IMMEDIATELY
             lastRenderedDateLabel = currentLabel;
         }
-        // YES: Do NOT print header. Just append the item.
 
         // --- ROW RENDER ---
         const row = document.createElement('div');
@@ -153,8 +172,9 @@ function renderRows(items) {
         fragment.appendChild(row);
     });
 
-    // Insert properly
+    // Insert before sentinel
     container.insertBefore(fragment, sentinel);
+    console.log(`✅ Rendered ${items.length} items. Current date context: "${lastRenderedDateLabel}"`);
 }
 
 function toggleRowSelection(row) {

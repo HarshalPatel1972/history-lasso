@@ -50,14 +50,14 @@ export class HistoryLoader {
                     return;
                 }
 
-                // IMPORTANT: Chrome API might return the same item if timestamps match exactly.
-                // We should theoretically handle deduping, but usually strictly decrementing time works.
-                
-                // Update cursor to the timestamp of the LAST item
+                // CRITICAL FIX: Force sort results by time (newest first)
+                // Chrome doesn't guarantee order, which causes date headers to duplicate
+                results.sort((a, b) => b.lastVisitTime - a.lastVisitTime);
+
+                // Update cursor to the timestamp of the LAST item (oldest in this batch)
                 const lastItem = results[results.length - 1];
                 
-                // Chrome's 'endTime' is exclusive (items < endTime), but we subtract 1ms just to be safe
-                // against any precision issues or inclusive behaviors in edge cases.
+                // Chrome's 'endTime' is exclusive (items < endTime), subtract 1ms for safety
                 this.cursorTime = lastItem.lastVisitTime - 1; 
 
                 // If we got fewer than requested, we are likely done
@@ -65,6 +65,7 @@ export class HistoryLoader {
                     this.isFinished = true;
                 }
 
+                console.log(`HistoryLoader: Fetched ${results.length} items. Oldest: ${new Date(lastItem.lastVisitTime).toLocaleString()}`);
                 resolve(results);
             });
         });
