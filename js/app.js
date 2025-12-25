@@ -62,46 +62,37 @@ function renderRows(items) {
     items.forEach(item => {
         // Date Grouping logic
         const dateObj = new Date(item.lastVisitTime);
-        // Create normalized dates for comparison (midnight)
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
         const itemDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
 
-        // Base format: "Thursday, December 25, 2025"
-        const baseDateStr = dateObj.toLocaleDateString('en-US', { 
+        // Format: "December 25, 2025" (No weekday)
+        const datePart = dateObj.toLocaleDateString('en-US', { 
+            year: 'numeric', month: 'long', day: 'numeric' 
+        });
+
+        // Full Format with Weekday for older dates: "Tuesday, December 23, 2025"
+        const fullDatePart = dateObj.toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
-        let dateStr = baseDateStr;
+        let finalHeader = fullDatePart; // Default
+
         if (itemDate.getTime() === today.getTime()) {
-            dateStr = "Today - " + baseDateStr;
+            finalHeader = "Today - " + datePart;
         } else if (itemDate.getTime() === yesterday.getTime()) {
-            dateStr = "Yesterday - " + baseDateStr;
+            finalHeader = "Yesterday - " + datePart;
         }
 
-        if (dateStr.trim() !== lastDateHeader) {
-            // DOUBLE CHECK: Avoid printing if the VERY LAST element in container is ALREADY this header
-            // This handles cases where loadNextBatch might be called rapidly
-            const lastChild = container.lastElementChild;
-            const isSentinel = lastChild && lastChild.id === 'scroll-sentinel';
-            const realLastChild = isSentinel ? lastChild.previousElementSibling : lastChild;
-
-            let alreadyExists = false;
-            if (realLastChild && realLastChild.classList.contains('date-header')) {
-                if (realLastChild.textContent.trim() === dateStr.trim()) {
-                    alreadyExists = true;
-                }
-            }
-
-            if (!alreadyExists) {
-                const header = document.createElement('div');
-                header.className = 'date-header';
-                header.textContent = dateStr;
-                fragment.appendChild(header);
-                lastDateHeader = dateStr;
-            }
+        // Strict Check: Only print if strictly different string
+        if (finalHeader !== lastDateHeader) {
+             const header = document.createElement('div');
+             header.className = 'date-header';
+             header.textContent = finalHeader;
+             fragment.appendChild(header);
+             lastDateHeader = finalHeader; 
         }
 
         // Row Element
