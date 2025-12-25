@@ -1,20 +1,17 @@
 /**
  * APP ENGINE (js/app.js)
- * High-performance Infinite Scroll & Minimalist Logic.
- * Rewrite: v3.0 - Robust State Management & Date Deduplication.
+ * v4.0 - SENIOR DEV FIX: Persistent Global Date State
  */
 
 import { HistoryLoader } from './data.js';
 
-// --- GLOBAL STATE ---
+// --- 1. GLOBAL STATE (PERSISTENT) ---
+// This variable MUST be outside any function to persist across batches.
+let globalLastRenderedDate = null;
+
 const loader = new HistoryLoader();
 let selectoInstance = null;
 let isLassoActive = false;
-
-// CRITICAL: Global tracker for the last rendered date header.
-// This persists across infinite scroll batches to prevent duplicate headers.
-// Only reset this when the list is fully cleared (e.g., Search or Refresh).
-let globalLastDateString = null; 
 
 // --- DOM ELEMENTS ---
 const container = document.getElementById('history-container');
@@ -28,29 +25,47 @@ const btnLasso = document.getElementById('btn-lasso');
  * ENTRY POINT
  */
 async function init() {
-    console.log("App: Initializing Minimalist Dashboard v3.0...");
-
-    // 1. Initial Data Load
-    globalLastDateString = null; 
-    await loadNextBatch();
-
-    // 2. Infinite Scroll Observer
+    console.log("App: Initializing v4.0 with Persistent State...");
+    
+    // Initial Reset
+    resetApp();
+    
+    // Start Infinite Scroll Observer
     const observer = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
             loadNextBatch();
         }
-    }, { root: null, rootMargin: '400px', threshold: 0.1 });
+    }, { root: null, rootMargin: '600px', threshold: 0.1 }); // Increased margin for smoother preload
     
     observer.observe(sentinel);
 
-    // 3. Setup Listeners
+    // Initial Load
+    await loadNextBatch();
+
+    // Listeners
     setupSearch();
     setupLassoToggle();
     setupActions();
 }
 
 /**
- * FETCH & RENDER LOOP
+ * CORE LOGIC: RESET
+ * Clears DOM and Resets Global State.
+ */
+function resetApp(searchQuery = null) {
+    // 1. Reset Global Date Tracker
+    globalLastRenderedDate = null;
+    
+    // 2. Clear Container (Keep Sentinel)
+    container.innerHTML = '';
+    container.appendChild(sentinel);
+    
+    // 3. Reset Loader
+    loader.reset(searchQuery);
+}
+
+/**
+ * CORE LOGIC: FETCH & RENDER
  */
 async function loadNextBatch() {
     const items = await loader.loadNextBatch(100);
@@ -61,16 +76,19 @@ function renderRows(items) {
     if (!items || items.length === 0) return;
 
     const fragment = document.createDocumentFragment();
+    
+    // Date Helpers
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
     items.forEach(item => {
+        // --- DATE HEADER LOGIC ---
         const dateObj = new Date(item.lastVisitTime);
         const itemDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
         
-        // 1. Determine the Date Header String
+        // Formats
         const datePart = dateObj.toLocaleDateString('en-US', { 
             year: 'numeric', month: 'long', day: 'numeric' 
         });
@@ -78,7 +96,7 @@ function renderRows(items) {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
-        let finalHeader = fullDatePart; // Default: "Tuesday, December 23, 2025"
+        let finalHeader = fullDatePart;
 
         if (itemDate.getTime() === today.getTime()) {
             finalHeader = "Today - " + datePart;
@@ -86,24 +104,25 @@ function renderRows(items) {
             finalHeader = "Yesterday - " + datePart;
         }
 
-        // 2. CHECK GLOBAL STATE to determine if we need a new header
-        if (finalHeader !== globalLastDateString) {
+        // --- STRICT GLOBAL CHECK ---
+        // We only render if this item's date string is different from the GLOBAL last rendered date.
+        // Since we iterate in strict time-descending order, this guarantees headers appear only at boundaries.
+        if (finalHeader !== globalLastRenderedDate) {
             const header = document.createElement('div');
             header.className = 'date-header';
             header.textContent = finalHeader;
             fragment.appendChild(header);
             
             // UPDATE GLOBAL STATE
-            globalLastDateString = finalHeader;
+            globalLastRenderedDate = finalHeader;
         }
 
-        // 3. Render the Row
+        // --- ROW RENDER ---
         const row = document.createElement('div');
         row.className = 'history-row';
         row.dataset.id = item.id; 
         row.dataset.url = item.url;
         
-        // Domain parsing
         let domain = "";
         try { domain = new URL(item.url).hostname.replace('www.', ''); } catch(e){}
         const timeStr = dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -118,25 +137,17 @@ function renderRows(items) {
             </div>
         `;
 
-        // Click Handler
+        // Interaction
         row.addEventListener('click', (e) => {
-             if (e.target.closest('.checkbox')) {
-                 toggleRowSelection(row);
-                 return;
-             }
-             if (isLassoActive) {
-                 toggleRowSelection(row);
-                 return;
-             }
-             if (!e.ctrlKey && !e.shiftKey && !e.metaKey) {
-                 window.location.href = item.url;
-             }
+             if (e.target.closest('.checkbox')) { toggleRowSelection(row); return; }
+             if (isLassoActive) { toggleRowSelection(row); return; }
+             if (!e.ctrlKey && !e.shiftKey && !e.metaKey) { window.location.href = item.url; }
         });
 
         fragment.appendChild(row);
     });
 
-    // Append batch before Sentinel
+    // Insert properly
     container.insertBefore(fragment, sentinel);
 }
 
@@ -153,27 +164,19 @@ function setupSearch() {
     searchInput.addEventListener('input', (e) => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-            // CRITICAL: Reset the Global Date State on new search
-            globalLastDateString = null;
-            
-            // Clear DOM
-            container.innerHTML = '';
-            container.appendChild(sentinel); 
-
-            loader.reset(e.target.value);
+            resetApp(e.target.value);
             loadNextBatch();
         }, 300);
     });
 }
 
 /**
- * LASSO TOGGLE
+ * LASSO & UI
  */
 function setupLassoToggle() {
-    // Init Selecto (Global Drag)
     selectoInstance = new Selecto({
         container: document.body,
-        dragContainer: document.body, 
+        dragContainer: document.body,
         selectableTargets: ['.history-row'],
         hitRate: 0,
         selectByClick: false, 
@@ -185,11 +188,9 @@ function setupLassoToggle() {
 
     btnLasso.addEventListener('click', () => {
         isLassoActive = !isLassoActive;
-
         if (isLassoActive) {
             btnLasso.classList.add('active');
             btnLasso.innerHTML = "🖱️ Lasso: ON";
-            
             selectoInstance = new Selecto({
                 container: document.body,
                 dragContainer: document.body,
@@ -209,19 +210,17 @@ function setupLassoToggle() {
             btnLasso.classList.remove('active');
             btnLasso.innerHTML = "🖱️ Lasso";
             cancelSelection();
-            if(selectoInstance) selectoInstance.destroy();
+            selectoInstance.destroy();
         }
     });
 
-    // Exit Button
     document.getElementById('btn-exit').addEventListener('click', () => {
-        if(confirm("To disable History Lasso, please toggle it OFF in the Chrome Extensions page.\n\nOpen Extensions Settings now?")) {
+        if(confirm("Open Extensions Settings to disable?")) {
             chrome.tabs.create({ url: "chrome://extensions" });
         }
     });
 }
 
-// Selection Helpers
 function updateSelectionState() {
     const count = document.querySelectorAll('.history-row.selected').length;
     if (count > 0) {
@@ -237,78 +236,67 @@ function cancelSelection() {
 }
 
 /**
- * ACTION HANDLERS
+ * ACTIONS
  */
 function setupActions() {
-    // Cancel Selection
     document.getElementById('btn-cancel').addEventListener('click', () => {
         cancelSelection();
         if(selectoInstance) selectoInstance.setSelectedTargets([]);
     });
 
-    // Delete Selected
     document.getElementById('btn-delete').addEventListener('click', async () => {
         const selected = document.querySelectorAll('.history-row.selected');
         const urls = Array.from(selected).map(el => el.dataset.url);
-        
-        if (urls.length > 0) {
-            if(confirm(`Delete ${urls.length} items?`)) {
-                await loader.deleteItems(urls);
-                window.location.reload();
-            }
+        if (urls.length > 0 && confirm(`Delete ${urls.length} items?`)) {
+            await loader.deleteItems(urls);
+            window.location.reload();
         }
     });
 
-    // --- DATE RANGE UI ---
+    // Date Popover
     const btnDate = document.getElementById('btn-date');
     const datePopup = document.getElementById('date-popup');
     const btnDateDelete = document.getElementById('btn-date-delete');
 
     btnDate.addEventListener('click', (e) => {
-        e.stopPropagation(); 
-        const isHidden = datePopup.classList.contains('hidden');
-        if (isHidden) {
-            datePopup.classList.remove('hidden');
-            btnDate.classList.add('active'); 
-            // Defaults
-            if(!document.getElementById('date-start').value) {
-                 document.getElementById('date-start').value = new Date().toISOString().split('T')[0];
-                 document.getElementById('date-end').value = new Date().toISOString().split('T')[0];
-            }
-        } else {
-            datePopup.classList.add('hidden');
-            btnDate.classList.remove('active');
+        e.stopPropagation();
+        datePopup.classList.toggle('hidden');
+        btnDate.classList.toggle('active');
+        if(!document.getElementById('date-start').value) {
+             const ds = new Date().toISOString().split('T')[0];
+             document.getElementById('date-start').value = ds;
+             document.getElementById('date-end').value = ds;
         }
     });
     document.addEventListener('click', (e) => {
-        if (!datePopup.classList.contains('hidden') && !datePopup.contains(e.target) && e.target !== btnDate) {
+        if (!datePopup.contains(e.target) && e.target !== btnDate) {
             datePopup.classList.add('hidden');
             btnDate.classList.remove('active');
         }
     });
     btnDateDelete.addEventListener('click', () => {
-        const startStr = document.getElementById('date-start').value;
-        const endStr = document.getElementById('date-end').value;
-        if (!startStr || !endStr) { alert("Please select both dates."); return; }
-        const startTime = new Date(startStr).getTime();
-        const endTime = new Date(endStr).setHours(23, 59, 59, 999);
-        btnDateDelete.textContent = "Deleting...";
-        chrome.history.deleteRange({ startTime, endTime }, () => { window.location.reload(); });
+        const s = document.getElementById('date-start').value;
+        const e = document.getElementById('date-end').value;
+        if(s && e) {
+            btnDateDelete.textContent = "Deleting...";
+            chrome.history.deleteRange({
+                startTime: new Date(s).getTime(),
+                endTime: new Date(e).setHours(23,59,59,999)
+            }, () => window.location.reload());
+        }
     });
 
-    // --- GROUP BY SITE ---
+    // Group View
     const btnGroup = document.getElementById('btn-group');
     let isGroupMode = false;
-
     btnGroup.addEventListener('click', async () => {
-        if (isGroupMode) { window.location.reload(); return; }
+        if(isGroupMode) { window.location.reload(); return; }
         isGroupMode = true;
         btnGroup.classList.add('active');
         btnGroup.innerHTML = "🏢 List View";
-
-        // Fetch deep history 
-        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-secondary);">Scanning history clusters...</div>';
-        const items = await loader.loadNextBatch(5000); 
+        
+        container.innerHTML = '<div style="padding:40px; text-align:center;">Scanning...</div>';
+        const items = await loader.loadNextBatch(5000);
         
         const groups = {};
         items.forEach(item => {
@@ -319,17 +307,14 @@ function setupActions() {
         });
 
         const sortedDomains = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length);
-        container.innerHTML = ''; // Clear loading
+        container.innerHTML = ''; 
 
         sortedDomains.forEach(domain => {
             const count = groups[domain].length;
             if (count < 2) return; 
-
             const groupEl = document.createElement('div');
             groupEl.className = 'history-row';
             groupEl.style.cursor = 'pointer';
-            
-            // ALIGNMENT FIX: Spacers to match list view columns
             groupEl.innerHTML = `
                 <div class="checkbox" style="visibility:hidden"></div>
                 <span class="time" style="visibility:hidden">00:00</span>
@@ -340,19 +325,16 @@ function setupActions() {
                 </div>
                 <button class="pill-btn danger" style="padding:4px 10px; font-size:11px; margin-left:auto;">Delete All</button>
             `;
-
             groupEl.querySelector('button').addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if(confirm(`Delete all ${count} visits to ${domain}?`)) {
-                    await loader.deleteItems(groups[domain].map(i => i.url));
+                if(confirm('Delete all?')) {
+                    await loader.deleteItems(groups[domain].map(i=>i.url));
                     groupEl.remove();
                 }
             });
-
             container.appendChild(groupEl);
         });
-        
-        if(sentinel) sentinel.style.display = 'none';
+        sentinel.style.display = 'none';
     });
 }
 
