@@ -183,8 +183,10 @@ body {
     border: 2px solid var(--border-subtle);
     border-radius: 4px;
     flex-shrink: 0;
-    position: relative;
     transition: all 0.1s;
+    display: flex; /* Flex center */
+    align-items: center;
+    justify-content: center;
 }
 .history-row:hover .checkbox { border-color: var(--text-secondary); }
 
@@ -196,12 +198,11 @@ body {
 /* Fake Checkmark */
 .history-row.selected .checkbox::after {
     content: '';
-    position: absolute;
-    top: 2px; left: 5px;
-    width: 4px; height: 8px;
+    width: 5px; height: 9px; /* slightly larger */
     border-right: 2px solid white;
     border-bottom: 2px solid white;
     transform: rotate(45deg);
+    margin-top: -2px; /* optical adjustment */
 }
 
 .time { font-size: 13px; color: var(--text-secondary); width: 60px; font-variant-numeric: tabular-nums; }

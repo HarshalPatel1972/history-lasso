@@ -55,14 +55,10 @@ export class HistoryLoader {
                 // Update cursor to the timestamp of the LAST item
                 const lastItem = results[results.length - 1];
                 
-                // If the last item's time is same as cursor, just subtract 1ms to avoid loop
-                if (lastItem.lastVisitTime >= this.cursorTime) {
-                   this.cursorTime = lastItem.lastVisitTime - 1; 
-                } else {
-                   this.cursorTime = lastItem.lastVisitTime;
-                }
+                // Chrome's 'endTime' is exclusive (items < endTime), but we subtract 1ms just to be safe
+                // against any precision issues or inclusive behaviors in edge cases.
+                this.cursorTime = lastItem.lastVisitTime - 1; 
 
-                
                 // If we got fewer than requested, we are likely done
                 if (results.length < pageSize) {
                     this.isFinished = true;
