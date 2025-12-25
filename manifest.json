@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "History Lasso",
-  "version": "1.0",
-  "description": "Replaces the native history page with a superior file manager interface.",
+  "version": "2.0",
+  "description": "A premium File Manager for your Chrome History.",
   "permissions": [
     "history",
     "tabs",
@@ -11,12 +11,12 @@
   "chrome_url_overrides": {
     "history": "dashboard.html"
   },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  },
-  "action": {
-    "default_title": "History Lasso"
   }
 }

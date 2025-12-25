@@ -80,30 +80,6 @@ header {
 
 .search-bar input {
     background: transparent;
-    border: none;
-    color: var(--text-primary);
-    width: 100%;
-    outline: none;
-}
-
-.icon-btn {
-    background: transparent;
-    border: 1px solid var(--glass-border);
-    color: var(--text-primary);
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.icon-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
 /* Grid View */
 #history-grid {
     flex: 1;
@@ -257,4 +233,36 @@ header {
 .selecto-selection {
     background: var(--selection-box) !important;
     border: 1px solid var(--selection-border) !important;
+}
+
+/* Date Filter Styles */
+.glass-input {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.glass-input option {
+    background: #1a1a2e;
+    color: var(--text-primary);
+}
+
+.divider-vertical {
+    width: 1px;
+    height: 24px;
+    background: var(--glass-border);
+    margin: 0 10px;
+}
+
+/* Fix line-clamp compatibility */
+.card-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2; 
+    -webkit-box-orient: vertical;
 }

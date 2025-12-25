@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>History Lasso</title>
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <!-- Load Selecto from local lib -->
-    <script src="lib/selecto.min.js"></script> 
+    <script src="lib/selecto.min.js"></script>
 </head>
+
 <body>
-    
+
     <div id="app-container">
         <!-- Header / Filters -->
         <header class="glass-panel">
@@ -23,7 +24,14 @@
                     <i class="ph ph-magnifying-glass"></i>
                     <input type="text" id="search-input" placeholder="Search history..." autocomplete="off">
                 </div>
-                <button id="group-domain-btn" class="icon-btn" title="Group by Domain">
+                <select id="date-filter" class="glass-input">
+                    <option value="all">All Time</option>
+                    <option value="24h">Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                </select>
+                <div class="divider-vertical"></div>
+                <button id="group-domain-btn" class="icon-btn" title="Toggle View (List/Grid)">
                     <i class="ph ph-squares-four"></i>
                 </button>
                 <button id="refresh-btn" class="icon-btn" title="Refresh">
@@ -54,4 +62,5 @@
     <script type="module" src="js/lasso.js"></script>
     <script type="module" src="js/actions.js"></script>
 </body>
+
 </html>

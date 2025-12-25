@@ -4,6 +4,7 @@
  */
 
 import { initLasso } from './lasso.js';
+import { injectIcons } from './icons.js';
 
 const grid = document.getElementById('history-grid');
 let allHistoryItems = [];
@@ -11,8 +12,12 @@ let allHistoryItems = [];
 export async function initRender() {
     console.log("Render Engine: Initializing...");
     
+    // Inject Icons (Initial static icons)
+    injectIcons();
+    
     // Setup Controls
     document.getElementById('group-domain-btn').addEventListener('click', toggleGrouping);
+    document.getElementById('date-filter').addEventListener('change', handleDateFilter);
     
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('input', (e) => handleSearch(e.target.value));
@@ -21,8 +26,22 @@ export async function initRender() {
     initLasso();
 }
 
-let currentGrouping = 'domain'; // Default
-let allItemsCache = []; // Renamed for clarity within module scope
+let currentGrouping = 'domain'; 
+let allItemsCache = []; 
+
+async function handleDateFilter(e) {
+    const val = e.target.value;
+    let startTime = 0;
+    const now = Date.now();
+    
+    if (val === '24h') startTime = now - (24 * 60 * 60 * 1000);
+    else if (val === '7d') startTime = now - (7 * 24 * 60 * 60 * 1000);
+    else if (val === '30d') startTime = now - (30 * 24 * 60 * 60 * 1000);
+    
+    console.log(`Filtering history from: ${new Date(startTime).toLocaleString()}`);
+    await loadHistory(startTime);
+    initLasso();
+}
 
 function toggleGrouping() {
     currentGrouping = (currentGrouping === 'domain') ? 'flat' : 'domain';
@@ -41,21 +60,25 @@ function handleSearch(query) {
     initLasso();
 }
 
-async function loadHistory() {
+/**
+ * Fetch history from Chrome API
+ */
+async function loadHistory(startTime = 0) {
     try {
         const items = await chrome.history.search({
             text: '', 
-            maxResults: 2000, // Limit for performance
-            startTime: 0 
+            maxResults: 10000, // Increased capacity
+            startTime: startTime 
         });
         allItemsCache = items;
         renderItems(items);
     } catch (e) {
         console.error("History error:", e);
-        // Dev Mock Data if API fails (for local testing purposes)
-        if (!chrome.history) {
-            renderMockData();
-        }
+        grid.innerHTML = `<div class="error-msg" style="padding: 20px; color: #ef4444;">
+            <h3>Error Loading History</h3>
+            <p>${e.message}</p>
+            <p>Please ensure you have visited sites or check console for details.</p>
+        </div>`;
     }
 }
 
@@ -65,6 +88,12 @@ function renderMockData() {
 
 export function renderItems(items, groupBy = 'domain') {
     grid.innerHTML = '';
+    
+    if (!items || items.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 50px; color: var(--text-secondary);">No history items found matching your criteria.</div>';
+        return;
+    }
+
     const fragment = document.createDocumentFragment();
 
     if (groupBy === 'domain') {
@@ -107,6 +136,9 @@ export function renderItems(items, groupBy = 'domain') {
     }
 
     grid.appendChild(fragment);
+    
+    // Inject icons for the newly rendered cards
+    injectIcons();
 }
 
 function createCard(item, domainName) {
