@@ -114,6 +114,59 @@ body {
     box-shadow: 0 2px 6px var(--accent-light);
 }
 
+/* --- DATE POPOVER --- */
+.control-wrapper { position: relative; }
+
+.date-popover {
+    position: absolute;
+    top: 120%;
+    left: 0;
+    background: var(--bg-page);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+    width: 220px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.date-popover.hidden { display: none; }
+
+.date-inputs { display: flex; flex-direction: column; gap: 10px; }
+.input-group { display: flex; flex-direction: column; gap: 4px; }
+.input-group label { font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; }
+.input-group input {
+    background: var(--hover-bg);
+    border: 1px solid var(--border-subtle);
+    padding: 6px;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+}
+.input-group input:focus { border-color: var(--accent); }
+
+.action-btn-full {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.action-btn-full:hover { opacity: 0.9; }
+
+/* Dark mode adjustments for popover shadow/bg */
+@media (prefers-color-scheme: dark) {
+    .date-popover { background: #252525; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+}
+
 /* --- CSS TOOLTIPS --- */
 [data-tooltip]:hover::after {
     content: attr(data-tooltip);

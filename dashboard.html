@@ -24,9 +24,27 @@
             </div>
 
             <div class="toolbar-area">
-                <button class="pill-btn" id="btn-date" data-tooltip="Filter by Date Range">
-                    📅 Date
-                </button>
+                <!-- Date Wrapper for Popover -->
+                <div class="control-wrapper">
+                    <button class="pill-btn" id="btn-date" data-tooltip="Filter by Date Range">
+                        📅 Date
+                    </button>
+                    <!-- Custom Date Popup -->
+                    <div id="date-popup" class="date-popover hidden">
+                        <div class="date-inputs">
+                            <div class="input-group">
+                                <label>Start</label>
+                                <input type="date" id="date-start">
+                            </div>
+                            <div class="input-group">
+                                <label>End</label>
+                                <input type="date" id="date-end">
+                            </div>
+                        </div>
+                        <button id="btn-date-delete" class="action-btn-full">Delete Range</button>
+                    </div>
+                </div>
+
                 <button class="pill-btn" id="btn-group" data-tooltip="View by Website Domain">
                     🏢 Group
                 </button>

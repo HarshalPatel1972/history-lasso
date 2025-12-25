@@ -243,30 +243,55 @@ function setupActions() {
 
     // --- DATE RANGE FEATURE (Start/End Date) ---
     const btnDate = document.getElementById('btn-date');
-    btnDate.addEventListener('click', async () => {
-        // Step 1: Get Start Date
-        const startStr = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-        if (!startStr) return;
-        
-        // Step 2: Get End Date
-        const endStr = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-        if (!endStr) return;
+    const datePopup = document.getElementById('date-popup');
+    const btnDateDelete = document.getElementById('btn-date-delete');
 
-        const startTime = new Date(startStr).getTime();
-        // End date should be end of that day (23:59:59) to be inclusive
-        const endTime = new Date(endStr).setHours(23, 59, 59, 999);
+    // Toggle Popover
+    btnDate.addEventListener('click', (e) => {
+        e.stopPropagation(); // prevent document click close
+        const isHidden = datePopup.classList.contains('hidden');
+        if (isHidden) {
+            datePopup.classList.remove('hidden');
+            btnDate.classList.add('active'); // Keep button lit
+            // Set default dates if empty
+            if(!document.getElementById('date-start').value) {
+                 document.getElementById('date-start').value = new Date().toISOString().split('T')[0];
+                 document.getElementById('date-end').value = new Date().toISOString().split('T')[0];
+            }
+        } else {
+            datePopup.classList.add('hidden');
+            btnDate.classList.remove('active');
+        }
+    });
 
-        if (isNaN(startTime) || isNaN(endTime)) {
-            alert("Invalid date format. Please use YYYY-MM-DD.");
+    // Close popover when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!datePopup.classList.contains('hidden') && !datePopup.contains(e.target) && e.target !== btnDate) {
+            datePopup.classList.add('hidden');
+            btnDate.classList.remove('active');
+        }
+    });
+
+    // Execute Delete
+    btnDateDelete.addEventListener('click', () => {
+        const startStr = document.getElementById('date-start').value;
+        const endStr = document.getElementById('date-end').value;
+
+        if (!startStr || !endStr) {
+            alert("Please select both dates.");
             return;
         }
 
-        if (confirm(`Delete all history from ${startStr} to ${endStr}?`)) {
-            chrome.history.deleteRange({ startTime, endTime }, () => {
-                 alert("History range deleted.");
-                 window.location.reload();
-            });
-        }
+        const startTime = new Date(startStr).getTime();
+        const endTime = new Date(endStr).setHours(23, 59, 59, 999);
+
+        // Visual feedback
+        btnDateDelete.textContent = "Deleting...";
+        
+        chrome.history.deleteRange({ startTime, endTime }, () => {
+             // alert("History range deleted."); // Remove ALERT per user request for smoother UX
+             window.location.reload();
+        });
     });
 
     // --- GROUP BY SITE FEATURE ---
