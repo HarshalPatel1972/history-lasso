@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History Lasso</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Load Selecto from local lib -->
+    <script src="lib/selecto.min.js"></script> 
+</head>
+<body>
+    
+    <div id="app-container">
+        <!-- Header / Filters -->
+        <header class="glass-panel">
+            <div class="logo">
+                <i class="ph ph-lasso"></i>
+                <h1>History Lasso</h1>
+            </div>
+            <div class="controls">
+                <div class="search-bar">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Search history..." autocomplete="off">
+                </div>
+                <button id="group-domain-btn" class="icon-btn" title="Group by Domain">
+                    <i class="ph ph-squares-four"></i>
+                </button>
+                <button id="refresh-btn" class="icon-btn" title="Refresh">
+                    <i class="ph ph-arrow-clockwise"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="history-grid" class="grid-view">
+            <!-- History Cards will be injected here -->
+        </main>
+
+        <!-- Floating Action Bar (Hidden by default, shown on selection) -->
+        <div id="action-bar" class="glass-panel floating-bar hidden">
+            <span id="selection-count">0 items selected</span>
+            <div class="actions">
+                <button id="clear-selection-btn" class="secondary-btn">Cancel</button>
+                <button id="delete-btn" class="danger-btn">
+                    <i class="ph ph-trash"></i> Delete Selected
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modules -->
+    <script type="module" src="js/render.js"></script>
+    <script type="module" src="js/lasso.js"></script>
+    <script type="module" src="js/actions.js"></script>
+</body>
+</html>
