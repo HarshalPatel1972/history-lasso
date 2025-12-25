@@ -59,11 +59,26 @@ function renderRows(items) {
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {
-        // Simple Date Grouping
+        // Date Grouping logic
         const dateObj = new Date(item.lastVisitTime);
-        const dateStr = dateObj.toLocaleDateString(undefined, { 
-            weekday: 'long', month: 'long', day: 'numeric' 
+        // Create normalized dates for comparison (midnight)
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const itemDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+
+        // Base format: "Thursday, December 25, 2025"
+        const baseDateStr = dateObj.toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
+
+        let dateStr = baseDateStr;
+        if (itemDate.getTime() === today.getTime()) {
+            dateStr = "Today - " + baseDateStr;
+        } else if (itemDate.getTime() === yesterday.getTime()) {
+            dateStr = "Yesterday - " + baseDateStr;
+        }
 
         if (dateStr !== lastDateHeader) {
             const header = document.createElement('div');
