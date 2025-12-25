@@ -336,16 +336,19 @@ function setupActions() {
 
             const groupEl = document.createElement('div');
             groupEl.className = 'history-row';
-            groupEl.style.justifyContent = 'space-between';
+            // Use standard styling, remove manual justify-between to rely on flex gap
             groupEl.style.cursor = 'pointer';
             
+            // We use 'visibility: hidden' on spacers to perfectly preserve the column layout
             groupEl.innerHTML = `
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <img src="_favicon/?pageUrl=https://${domain}&size=16" style="width:16px;height:16px;">
-                    <span style="font-weight:600; font-size:14px;">${domain}</span>
-                    <span style="color:var(--text-secondary); font-size:12px;">(${count} items)</span>
+                <div class="checkbox" style="visibility:hidden"></div>
+                <span class="time" style="visibility:hidden">99:99</span>
+                <img class="favicon" src="_favicon/?pageUrl=https://${domain}&size=16">
+                <div class="content">
+                    <span class="title" style="font-weight:600">${domain}</span>
+                    <span class="domain">(${count} items)</span>
                 </div>
-                <button class="pill-btn danger" style="padding:4px 10px; font-size:11px;">Delete All</button>
+                <button class="pill-btn danger" style="padding:4px 10px; font-size:11px; margin-left:auto;">Delete All</button>
             `;
 
             groupEl.querySelector('button').addEventListener('click', async (e) => {
