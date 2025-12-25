@@ -1,13 +1,14 @@
 /**
  * APP ENGINE (js/app.js)
- * v4.0 - SENIOR DEV FIX: Persistent Global Date State
+ * v5.0 - Final Logic Fix: Global Date Persistence (User Verified)
  */
 
 import { HistoryLoader } from './data.js';
 
 // --- 1. GLOBAL STATE (PERSISTENT) ---
-// This variable MUST be outside any function to persist across batches.
-let globalLastRenderedDate = null;
+// This variable tracks the last rendered date header string across
+// multiple batches. It MUST be defined here to survive function calls.
+let lastRenderedDateLabel = null;
 
 const loader = new HistoryLoader();
 let selectoInstance = null;
@@ -25,17 +26,18 @@ const btnLasso = document.getElementById('btn-lasso');
  * ENTRY POINT
  */
 async function init() {
-    console.log("App: Initializing v4.0 with Persistent State...");
+    console.log("App: Initializing v5.0...");
     
     // Initial Reset
-    resetApp();
+    resetState();
     
     // Start Infinite Scroll Observer
+    // Using a safe threshold to prevent double-firing
     const observer = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
             loadNextBatch();
         }
-    }, { root: null, rootMargin: '600px', threshold: 0.1 }); // Increased margin for smoother preload
+    }, { root: null, rootMargin: '400px', threshold: 0.1 });
     
     observer.observe(sentinel);
 
@@ -52,9 +54,9 @@ async function init() {
  * CORE LOGIC: RESET
  * Clears DOM and Resets Global State.
  */
-function resetApp(searchQuery = null) {
+function resetState(searchQuery = null) {
     // 1. Reset Global Date Tracker
-    globalLastRenderedDate = null;
+    lastRenderedDateLabel = null;
     
     // 2. Clear Container (Keep Sentinel)
     container.innerHTML = '';
@@ -68,6 +70,9 @@ function resetApp(searchQuery = null) {
  * CORE LOGIC: FETCH & RENDER
  */
 async function loadNextBatch() {
+    // Prevent multiple calls if loader is busy (handled inside loader usually, but good to be safe)
+    if (loader.isLoading) return; 
+
     const items = await loader.loadNextBatch(100);
     renderRows(items);
 }
@@ -96,26 +101,27 @@ function renderRows(items) {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
-        let finalHeader = fullDatePart;
+        let currentLabel = fullDatePart;
 
         if (itemDate.getTime() === today.getTime()) {
-            finalHeader = "Today - " + datePart;
+            currentLabel = "Today - " + datePart;
         } else if (itemDate.getTime() === yesterday.getTime()) {
-            finalHeader = "Yesterday - " + datePart;
+            currentLabel = "Yesterday - " + datePart;
         }
 
         // --- STRICT GLOBAL CHECK ---
-        // We only render if this item's date string is different from the GLOBAL last rendered date.
-        // Since we iterate in strict time-descending order, this guarantees headers appear only at boundaries.
-        if (finalHeader !== globalLastRenderedDate) {
+        // "Is this item's date the same as the last header I rendered?"
+        if (currentLabel !== lastRenderedDateLabel) {
+            // NO: Print new Date Header.
             const header = document.createElement('div');
             header.className = 'date-header';
-            header.textContent = finalHeader;
+            header.textContent = currentLabel;
             fragment.appendChild(header);
             
             // UPDATE GLOBAL STATE
-            globalLastRenderedDate = finalHeader;
+            lastRenderedDateLabel = currentLabel;
         }
+        // YES: Do NOT print header. Just append the item.
 
         // --- ROW RENDER ---
         const row = document.createElement('div');
@@ -164,7 +170,7 @@ function setupSearch() {
     searchInput.addEventListener('input', (e) => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-            resetApp(e.target.value);
+            resetState(e.target.value);
             loadNextBatch();
         }, 300);
     });
