@@ -1,67 +1,97 @@
 /**
  * LASSO ENGINE (js/lasso.js)
- * Updated for LIST VIEW ROW selection.
+ * Only active when explicitly enabled via toggle.
  */
 
+let selectoInstance = null;
+let isLassoEnabled = false;
+
 export function initLasso(renderCallback) {
-    console.log("Lasso: Initializing for LIST VIEW...");
+    const listContainer = document.getElementById('history-list');
+    const selectionBar = document.getElementById('selection-bar');
+    const countSpan = document.getElementById('select-count');
 
-    // Selection State
-    let selectedIds = new Set();
-    const actionDock = document.getElementById('action-dock');
-    const countLabel = document.getElementById('selected-count');
-
-    // Init Selecto
-    const selecto = new Selecto({
+    selectoInstance = new Selecto({
         container: document.body,
-        dragContainer: '#history-container', // New container ID
-        selectableTargets: ['.history-row'], // Target rows now
+        dragContainer: listContainer,
+        selectableTargets: ['.native-row'],
         hitRate: 0,
-        selectByClick: false,
+        selectByClick: true, // Allow clicking rows to select when mode is active
         selectFromInside: false,
         toggleInside: true,
         ratio: 0,
     });
 
-    // Events
-    selecto.on("select", e => {
-        e.added.forEach(el => {
-            el.classList.add("selected");
-            selectedIds.add(el.dataset.id);
-        });
-        e.removed.forEach(el => {
-            el.classList.remove("selected");
-            selectedIds.delete(el.dataset.id);
-        });
-        updateDock();
-    });
+    // Initially Disabled
+    selectoInstance.destroy(); 
 
-    function updateDock() {
-        const count = selectedIds.size;
-        countLabel.textContent = count;
-        
-        if (count > 0) actionDock.classList.remove('hidden');
-        else actionDock.classList.add('hidden');
+    // Re-bind method to toggle
+    window.toggleLassoInternal = () => {
+        isLassoEnabled = !isLassoEnabled;
+        if (isLassoEnabled) {
+            selectoInstance = new Selecto({
+                container: document.body,
+                dragContainer: listContainer,
+                selectableTargets: ['.native-row'],
+                hitRate: 0,
+                selectByClick: true, // Click selects row
+                selectFromInside: false,
+                toggleInside: true,
+                ratio: 0,
+            });
+            bindEvents(renderCallback);
+        } else {
+            selectoInstance.destroy(); // Completely kill drag events
+            clearSelection();
+        }
+        return isLassoEnabled;
+    };
+
+    // Shared functionality
+    function bindEvents(cb) {
+        selectoInstance.on("select", e => {
+            e.added.forEach(el => {
+                el.classList.add("selected");
+                const checkbox = el.querySelector('.native-checkbox');
+                if(checkbox) checkbox.checked = true;
+            });
+            e.removed.forEach(el => {
+                el.classList.remove("selected");
+                const checkbox = el.querySelector('.native-checkbox');
+                if(checkbox) checkbox.checked = false;
+            });
+            updateUI();
+        });
     }
 
-    // Cancel
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-        selecto.setSelectedTargets([]);
-        document.querySelectorAll('.history-row.selected').forEach(el => el.classList.remove('selected'));
-        selectedIds.clear();
-        updateDock();
-    });
-
-    // Delete
-    document.getElementById('btn-delete').addEventListener('click', async () => {
-        const selectedEls = document.querySelectorAll('.history-row.selected');
-        const urls = Array.from(selectedEls).map(el => el.dataset.url);
-
-        if (renderCallback) {
-             const btn = document.getElementById('btn-delete');
-             btn.textContent = "Deleting...";
-             await renderCallback('delete', urls);
-             // Render callback usually reloads, so no UI cleanup needed here
+    function updateUI() {
+        const count = document.querySelectorAll('.native-row.selected').length;
+        if (count > 0) {
+            selectionBar.classList.remove('hidden');
+            countSpan.textContent = `${count} selected`;
+        } else {
+            selectionBar.classList.add('hidden');
         }
+    }
+
+    function clearSelection() {
+         document.querySelectorAll('.native-row.selected').forEach(el => {
+             el.classList.remove('selected');
+             el.querySelector('.native-checkbox').checked = false;
+         });
+         selectionBar.classList.add('hidden');
+    }
+    
+    // Action Buttons
+    document.getElementById('cancel-select').addEventListener('click', clearSelection);
+    document.getElementById('delete-select').addEventListener('click', async () => {
+        const selected = document.querySelectorAll('.native-row.selected');
+        const urls = Array.from(selected).map(el => el.dataset.url);
+        if(cb) await cb('delete', urls);
     });
+}
+
+export function toggleLasso() {
+    if(window.toggleLassoInternal) return window.toggleLassoInternal();
+    return false;
 }

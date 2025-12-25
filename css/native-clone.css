@@ -1,0 +1,202 @@
+/* NATIVE CLONE CSS */
+
+/* Variables matching Chrome Dark Mode */
+:root {
+    --bg-page: #202124;
+    --text-primary: #e8eaed;
+    --text-secondary: #9aa0a6;
+    --border-color: #3c4043;
+    --blue-accent: #8ab4f8;
+    --row-hover: #292a2d;
+    --toolbar-height: 56px;
+    --sidebar-width: 250px;
+}
+
+body.chrome-native {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-size: 13px;
+    overflow: hidden; /* Main scroll is inside content */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 1. Chrome Toolbar */
+.chrome-toolbar {
+    height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    background: var(--bg-page); /* Blends in */
+    border-bottom: 1px solid transparent;
+    flex-shrink: 0;
+}
+
+.page-title {
+    font-size: 22px;
+    font-weight: 400;
+    margin: 0;
+}
+
+.toolbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    margin-left: -100px; /* Countertitle offset */
+}
+
+.search-field {
+    background: rgba(255,255,255,0.08); /* Search bar bubble */
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 40px;
+    width: 680px;
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+.search-field:focus-within {
+    background: white;
+    color: #202124; /* Inverse for light mode focus feel if needed, but keeping simple dark */
+    background: rgba(255,255,255,0.15);
+}
+
+.search-field svg { width: 20px; height: 20px; fill: var(--text-secondary); margin-right: 12px; }
+.search-field input {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 15px;
+    flex: 1;
+    outline: none;
+}
+
+/* 2. Super Toolbar (Custom) */
+.super-toolbar {
+    height: 48px;
+    background: #292a2d; /* Slightly lighter header */
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding-left: var(--sidebar-width); /* Align with content */
+    gap: 20px;
+}
+
+.super-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: 0.2s;
+    position: relative;
+    user-select: none;
+}
+.super-tab:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+
+/* Popover */
+.popover {
+    position: absolute;
+    top: 40px; left: 0;
+    background: #35363a;
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    z-index: 50;
+    display: flex; gap: 10px; align-items: center;
+}
+.popover.hidden { display: none; }
+
+/* 3. Main Layout */
+.main-content {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 104px); /* Toolbar + SuperToolbar */
+}
+
+.sidebar-spacer {
+    width: var(--sidebar-width);
+    padding-top: 20px;
+    flex-shrink: 0;
+}
+.sidebar-item {
+    padding: 10px 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex; align-items: center;
+}
+.sidebar-item.active { color: var(--blue-accent); background: rgba(138, 180, 248, 0.1); border-radius: 0 20px 20px 0; }
+
+.history-list-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 40px 50px 20px; /* Right padding for scrollbar */
+}
+
+/* Native Rows */
+.native-date-header {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin: 20px 0 10px 0;
+}
+
+.native-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    cursor: default;
+}
+.native-row:hover { background: var(--row-hover); }
+
+/* Checkbox Area */
+.checkbox-area { width: 30px; display: flex; justify-content: center; }
+.native-checkbox {
+    width: 16px; height: 16px;
+    accent-color: var(--blue-accent);
+}
+
+.time { color: var(--text-secondary); font-size: 12px; width: 60px; }
+.favicon-wrapper { width: 32px; display: flex; justify-content: center; }
+.favicon-wrapper img { width: 16px; height: 16px; }
+
+.meta-area { flex: 1; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.title { color: var(--text-primary); text-decoration: none; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.domain { color: var(--text-secondary); font-size: 13px; }
+
+.more-btn { color: var(--text-secondary); cursor: pointer; padding: 4px; font-weight: bold; }
+
+/* Lasso Active State */
+.lasso-active .history-list-container { cursor: crosshair; }
+.native-row.selected { background: rgba(138, 180, 248, 0.15); }
+
+/* Selection Bar (Bottom) */
+.selection-bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 60px;
+    background: #1a73e8; /* Chrome Blue */
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+    color: white;
+    font-size: 16px;
+}
+.selection-bar.hidden { display: none; }
+.selection-bar button {
+    background: transparent; border: 1px solid white; color: white;
+    padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;
+    margin-left: 10px;
+}
+.selection-bar button:hover { background: rgba(255,255,255,0.1); }
