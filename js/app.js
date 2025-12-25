@@ -1,17 +1,22 @@
 /**
  * APP ENGINE (js/app.js)
  * High-performance Infinite Scroll & Minimalist Logic.
+ * Rewrite: v3.0 - Robust State Management & Date Deduplication.
  */
 
 import { HistoryLoader } from './data.js';
 
-// --- STATE ---
+// --- GLOBAL STATE ---
 const loader = new HistoryLoader();
 let selectoInstance = null;
 let isLassoActive = false;
-let lastDateHeader = null;
 
-// --- DOM ---
+// CRITICAL: Global tracker for the last rendered date header.
+// This persists across infinite scroll batches to prevent duplicate headers.
+// Only reset this when the list is fully cleared (e.g., Search or Refresh).
+let globalLastDateString = null; 
+
+// --- DOM ELEMENTS ---
 const container = document.getElementById('history-container');
 const sentinel = document.getElementById('scroll-sentinel');
 const searchInput = document.getElementById('search-input');
@@ -23,20 +28,18 @@ const btnLasso = document.getElementById('btn-lasso');
  * ENTRY POINT
  */
 async function init() {
-    console.log("App: Initializing Minimalist Dashboard...");
+    console.log("App: Initializing Minimalist Dashboard v3.0...");
 
-    // 1. Initial Data
-    lastDateHeader = null; // FORCE RESET
+    // 1. Initial Data Load
+    globalLastDateString = null; 
     await loadNextBatch();
 
     // 2. Infinite Scroll Observer
-    // We observe the sentinel at the bottom. When visible, load more.
     const observer = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
-            console.log("App: Scroll Sentinel hit. Loading more...");
             loadNextBatch();
         }
-    }, { root: null, rootMargin: '400px', threshold: 0.1 }); // Load well before bottom
+    }, { root: null, rootMargin: '400px', threshold: 0.1 });
     
     observer.observe(sentinel);
 
@@ -47,7 +50,7 @@ async function init() {
 }
 
 /**
- * FETCH & RENDER
+ * FETCH & RENDER LOOP
  */
 async function loadNextBatch() {
     const items = await loader.loadNextBatch(100);
@@ -58,27 +61,24 @@ function renderRows(items) {
     if (!items || items.length === 0) return;
 
     const fragment = document.createDocumentFragment();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
     items.forEach(item => {
-        // Date Grouping logic
         const dateObj = new Date(item.lastVisitTime);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
         const itemDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
-
-        // Format: "December 25, 2025" (No weekday)
+        
+        // 1. Determine the Date Header String
         const datePart = dateObj.toLocaleDateString('en-US', { 
             year: 'numeric', month: 'long', day: 'numeric' 
         });
-
-        // Full Format with Weekday for older dates: "Tuesday, December 23, 2025"
         const fullDatePart = dateObj.toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
-        let finalHeader = fullDatePart; // Default
+        let finalHeader = fullDatePart; // Default: "Tuesday, December 23, 2025"
 
         if (itemDate.getTime() === today.getTime()) {
             finalHeader = "Today - " + datePart;
@@ -86,21 +86,24 @@ function renderRows(items) {
             finalHeader = "Yesterday - " + datePart;
         }
 
-        // Strict Check: Only print if strictly different string
-        if (finalHeader !== lastDateHeader) {
-             const header = document.createElement('div');
-             header.className = 'date-header';
-             header.textContent = finalHeader;
-             fragment.appendChild(header);
-             lastDateHeader = finalHeader; 
+        // 2. CHECK GLOBAL STATE to determine if we need a new header
+        if (finalHeader !== globalLastDateString) {
+            const header = document.createElement('div');
+            header.className = 'date-header';
+            header.textContent = finalHeader;
+            fragment.appendChild(header);
+            
+            // UPDATE GLOBAL STATE
+            globalLastDateString = finalHeader;
         }
 
-        // Row Element
+        // 3. Render the Row
         const row = document.createElement('div');
         row.className = 'history-row';
         row.dataset.id = item.id; 
         row.dataset.url = item.url;
         
+        // Domain parsing
         let domain = "";
         try { domain = new URL(item.url).hostname.replace('www.', ''); } catch(e){}
         const timeStr = dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -115,21 +118,16 @@ function renderRows(items) {
             </div>
         `;
 
-        // Click Handler: Toggle Selection vs Navigation
+        // Click Handler
         row.addEventListener('click', (e) => {
-             // If clicking Checkbox directly, toggle selection
              if (e.target.closest('.checkbox')) {
                  toggleRowSelection(row);
                  return;
              }
-             
-             // If Lasso Mode is ON, clicking row toggles selection
              if (isLassoActive) {
                  toggleRowSelection(row);
                  return;
              }
-
-             // Normal Mode: Navigate (Ctrl+Click opens in new tab natively)
              if (!e.ctrlKey && !e.shiftKey && !e.metaKey) {
                  window.location.href = item.url;
              }
@@ -138,7 +136,7 @@ function renderRows(items) {
         fragment.appendChild(row);
     });
 
-    // Insert before sentinel to maintain scroll position capability
+    // Append batch before Sentinel
     container.insertBefore(fragment, sentinel);
 }
 
@@ -155,14 +153,12 @@ function setupSearch() {
     searchInput.addEventListener('input', (e) => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-            // Hard Reset for Search
-            lastDateHeader = null; 
+            // CRITICAL: Reset the Global Date State on new search
+            globalLastDateString = null;
             
-            // Clear content but keep sentinel
-            // NOTE: This logic was previously flawed if multiple sentinels existed or if DOM wasn't cleared cleanly.
-            // Safer approach:
-            container.innerHTML = ''; 
-            container.appendChild(sentinel);
+            // Clear DOM
+            container.innerHTML = '';
+            container.appendChild(sentinel); 
 
             loader.reset(e.target.value);
             loadNextBatch();
@@ -171,17 +167,17 @@ function setupSearch() {
 }
 
 /**
- * LASSO
+ * LASSO TOGGLE
  */
 function setupLassoToggle() {
-    // Init Selecto for Drag functionality
+    // Init Selecto (Global Drag)
     selectoInstance = new Selecto({
         container: document.body,
-        dragContainer: document.body, // EXPANDED: Allow dragging from anywhere (margins/white space)
+        dragContainer: document.body, 
         selectableTargets: ['.history-row'],
         hitRate: 0,
         selectByClick: false, 
-        selectFromInside: false,
+        selectFromInside: false, 
         toggleInside: true,
         ratio: 0,
     });
@@ -196,7 +192,7 @@ function setupLassoToggle() {
             
             selectoInstance = new Selecto({
                 container: document.body,
-                dragContainer: document.body, // EXPANDED
+                dragContainer: document.body,
                 selectableTargets: ['.history-row'],
                 hitRate: 0,
                 selectByClick: false, 
@@ -217,22 +213,15 @@ function setupLassoToggle() {
         }
     });
 
-    // Exit / Disable
+    // Exit Button
     document.getElementById('btn-exit').addEventListener('click', () => {
         if(confirm("To disable History Lasso, please toggle it OFF in the Chrome Extensions page.\n\nOpen Extensions Settings now?")) {
             chrome.tabs.create({ url: "chrome://extensions" });
         }
     });
-
-    // Cancel Button
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-        cancelSelection();
-        // If in Lasso mode, we keep Lasso mode ON but clear selection? 
-        // Or turn off? User probably just wants to de-select.
-        if (selectoInstance) selectoInstance.setSelectedTargets([]);
-    });
 }
 
+// Selection Helpers
 function updateSelectionState() {
     const count = document.querySelectorAll('.history-row.selected').length;
     if (count > 0) {
@@ -242,19 +231,21 @@ function updateSelectionState() {
         selectionBar.classList.add('hidden');
     }
 }
-
 function cancelSelection() {
     document.querySelectorAll('.history-row.selected').forEach(el => el.classList.remove('selected'));
     updateSelectionState();
 }
 
 /**
- * DELETE & ACTIONS
- */
-/**
- * DELETE & ACTIONS
+ * ACTION HANDLERS
  */
 function setupActions() {
+    // Cancel Selection
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        cancelSelection();
+        if(selectoInstance) selectoInstance.setSelectedTargets([]);
+    });
+
     // Delete Selected
     document.getElementById('btn-delete').addEventListener('click', async () => {
         const selected = document.querySelectorAll('.history-row.selected');
@@ -268,24 +259,18 @@ function setupActions() {
         }
     });
 
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-        cancelSelection();
-        if(selectoInstance) selectoInstance.setSelectedTargets([]);
-    });
-
-    // --- DATE RANGE FEATURE (Start/End Date) ---
+    // --- DATE RANGE UI ---
     const btnDate = document.getElementById('btn-date');
     const datePopup = document.getElementById('date-popup');
     const btnDateDelete = document.getElementById('btn-date-delete');
 
-    // Toggle Popover
     btnDate.addEventListener('click', (e) => {
-        e.stopPropagation(); // prevent document click close
+        e.stopPropagation(); 
         const isHidden = datePopup.classList.contains('hidden');
         if (isHidden) {
             datePopup.classList.remove('hidden');
-            btnDate.classList.add('active'); // Keep button lit
-            // Set default dates if empty
+            btnDate.classList.add('active'); 
+            // Defaults
             if(!document.getElementById('date-start').value) {
                  document.getElementById('date-start').value = new Date().toISOString().split('T')[0];
                  document.getElementById('date-end').value = new Date().toISOString().split('T')[0];
@@ -295,53 +280,34 @@ function setupActions() {
             btnDate.classList.remove('active');
         }
     });
-
-    // Close popover when clicking outside
     document.addEventListener('click', (e) => {
         if (!datePopup.classList.contains('hidden') && !datePopup.contains(e.target) && e.target !== btnDate) {
             datePopup.classList.add('hidden');
             btnDate.classList.remove('active');
         }
     });
-
-    // Execute Delete
     btnDateDelete.addEventListener('click', () => {
         const startStr = document.getElementById('date-start').value;
         const endStr = document.getElementById('date-end').value;
-
-        if (!startStr || !endStr) {
-            alert("Please select both dates.");
-            return;
-        }
-
+        if (!startStr || !endStr) { alert("Please select both dates."); return; }
         const startTime = new Date(startStr).getTime();
         const endTime = new Date(endStr).setHours(23, 59, 59, 999);
-
-        // Visual feedback
         btnDateDelete.textContent = "Deleting...";
-        
-        chrome.history.deleteRange({ startTime, endTime }, () => {
-             // alert("History range deleted."); // Remove ALERT per user request for smoother UX
-             window.location.reload();
-        });
+        chrome.history.deleteRange({ startTime, endTime }, () => { window.location.reload(); });
     });
 
-    // --- GROUP BY SITE FEATURE ---
+    // --- GROUP BY SITE ---
     const btnGroup = document.getElementById('btn-group');
     let isGroupMode = false;
 
     btnGroup.addEventListener('click', async () => {
-        if (isGroupMode) {
-            window.location.reload(); 
-            return;
-        }
-
+        if (isGroupMode) { window.location.reload(); return; }
         isGroupMode = true;
         btnGroup.classList.add('active');
         btnGroup.innerHTML = "🏢 List View";
 
-        container.innerHTML = '<div style="padding:20px; text-align:center;">Analyzing history clusters...</div>';
-        
+        // Fetch deep history 
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-secondary);">Scanning history clusters...</div>';
         const items = await loader.loadNextBatch(5000); 
         
         const groups = {};
@@ -353,8 +319,7 @@ function setupActions() {
         });
 
         const sortedDomains = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length);
-
-        container.innerHTML = '';
+        container.innerHTML = ''; // Clear loading
 
         sortedDomains.forEach(domain => {
             const count = groups[domain].length;
@@ -362,13 +327,12 @@ function setupActions() {
 
             const groupEl = document.createElement('div');
             groupEl.className = 'history-row';
-            // Use standard styling, remove manual justify-between to rely on flex gap
             groupEl.style.cursor = 'pointer';
             
-            // We use 'visibility: hidden' on spacers to perfectly preserve the column layout
+            // ALIGNMENT FIX: Spacers to match list view columns
             groupEl.innerHTML = `
                 <div class="checkbox" style="visibility:hidden"></div>
-                <span class="time" style="visibility:hidden">99:99</span>
+                <span class="time" style="visibility:hidden">00:00</span>
                 <img class="favicon" src="_favicon/?pageUrl=https://${domain}&size=16">
                 <div class="content">
                     <span class="title" style="font-weight:600">${domain}</span>
@@ -380,18 +344,16 @@ function setupActions() {
             groupEl.querySelector('button').addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if(confirm(`Delete all ${count} visits to ${domain}?`)) {
-                    const urls = groups[domain].map(i => i.url);
-                    await loader.deleteItems(urls);
+                    await loader.deleteItems(groups[domain].map(i => i.url));
                     groupEl.remove();
                 }
             });
 
             container.appendChild(groupEl);
         });
-
+        
         if(sentinel) sentinel.style.display = 'none';
     });
 }
-
 
 init();
