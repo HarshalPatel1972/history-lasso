@@ -167,6 +167,24 @@ body {
     .date-popover { background: #252525; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 }
 
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.icon-btn:hover {
+    color: var(--danger);
+    background: rgba(255, 59, 48, 0.1);
+    opacity: 1 !important;
+}
+
 /* --- CSS TOOLTIPS --- */
 [data-tooltip]:hover::after {
     content: attr(data-tooltip);

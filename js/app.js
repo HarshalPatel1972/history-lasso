@@ -151,15 +151,14 @@ function setupLassoToggle() {
     // Init Selecto for Drag functionality
     selectoInstance = new Selecto({
         container: document.body,
-        dragContainer: '#history-container',
+        dragContainer: document.body, // EXPANDED: Allow dragging from anywhere (margins/white space)
         selectableTargets: ['.history-row'],
         hitRate: 0,
-        selectByClick: false, // We handle click manually for hybrid feel
+        selectByClick: false, 
         selectFromInside: false,
         toggleInside: true,
         ratio: 0,
     });
-    // Immediately disable
     selectoInstance.destroy();
 
     btnLasso.addEventListener('click', () => {
@@ -168,14 +167,14 @@ function setupLassoToggle() {
         if (isLassoActive) {
             btnLasso.classList.add('active');
             btnLasso.innerHTML = "🖱️ Lasso: ON";
-            // Re-activate Selecto
+            
             selectoInstance = new Selecto({
                 container: document.body,
-                dragContainer: '#history-container',
+                dragContainer: document.body, // EXPANDED
                 selectableTargets: ['.history-row'],
                 hitRate: 0,
-                selectByClick: false, // Let our click listener handle singular taps
-                selectFromInside: false,
+                selectByClick: false, 
+                selectFromInside: false, 
                 toggleInside: true,
                 ratio: 0,
             });
@@ -189,6 +188,13 @@ function setupLassoToggle() {
             btnLasso.innerHTML = "🖱️ Lasso";
             cancelSelection();
             if(selectoInstance) selectoInstance.destroy();
+        }
+    });
+
+    // Exit / Disable
+    document.getElementById('btn-exit').addEventListener('click', () => {
+        if(confirm("To disable History Lasso, please toggle it OFF in the Chrome Extensions page.\n\nOpen Extensions Settings now?")) {
+            chrome.tabs.create({ url: "chrome://extensions" });
         }
     });
 
