@@ -1,10 +1,10 @@
 /**
  * LASSO ENGINE (js/lasso.js)
- * High-performance drag-selection logic.
+ * Updated for LIST VIEW ROW selection.
  */
 
 export function initLasso(renderCallback) {
-    console.log("Lasso Engine: Initializing...");
+    console.log("Lasso: Initializing for LIST VIEW...");
 
     // Selection State
     let selectedIds = new Set();
@@ -14,8 +14,8 @@ export function initLasso(renderCallback) {
     // Init Selecto
     const selecto = new Selecto({
         container: document.body,
-        dragContainer: '#main-canvas',
-        selectableTargets: ['.history-card'],
+        dragContainer: '#history-container', // New container ID
+        selectableTargets: ['.history-row'], // Target rows now
         hitRate: 0,
         selectByClick: false,
         selectFromInside: false,
@@ -44,27 +44,24 @@ export function initLasso(renderCallback) {
         else actionDock.classList.add('hidden');
     }
 
-    // Cancel Button
+    // Cancel
     document.getElementById('btn-cancel').addEventListener('click', () => {
         selecto.setSelectedTargets([]);
-        document.querySelectorAll('.history-card.selected').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.history-row.selected').forEach(el => el.classList.remove('selected'));
         selectedIds.clear();
         updateDock();
     });
 
-    // Delete Button Logic Hook
+    // Delete
     document.getElementById('btn-delete').addEventListener('click', async () => {
-        // Find URLs of selected items
-        const selectedEls = document.querySelectorAll('.history-card.selected');
+        const selectedEls = document.querySelectorAll('.history-row.selected');
         const urls = Array.from(selectedEls).map(el => el.dataset.url);
 
-        // Call External Render Callback (which bridges Data Layer)
         if (renderCallback) {
+             const btn = document.getElementById('btn-delete');
+             btn.textContent = "Deleting...";
              await renderCallback('delete', urls);
-             // Clear state after delete
-             selecto.setSelectedTargets([]);
-             selectedIds.clear();
-             updateDock();
+             // Render callback usually reloads, so no UI cleanup needed here
         }
     });
 }

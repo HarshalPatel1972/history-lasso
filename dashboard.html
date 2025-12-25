@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>History</title>
+    <title>History Lasso</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="lib/selecto.min.js"></script>
 </head>
@@ -12,49 +12,35 @@
 <body>
 
     <div id="app">
-        <!-- TOP CONTROL BAR -->
-        <header class="glass-header">
-            <div class="brand">
+        <!-- CAPABILITIES HEADER (Sticky) -->
+        <header class="capabilities-header">
+            <div class="left-section">
                 <div class="logo-icon lasso-icon"></div>
                 <span class="brand-text">History Lasso</span>
             </div>
 
-            <div class="center-controls">
-                <input type="text" id="search-input" placeholder="Search archive..." autocomplete="off">
+            <!-- Feature Pills (Visual indicators of power) -->
+            <div class="feature-pills">
+                <div class="pill" title="Filter by date">📅 Date Range</div>
+                <div class="pill" title="Group and delete domains">🗑️ Smart Domain Clean</div>
+                <div class="pill highlight" title="Drag to select rows">🖱️ Drag-to-Select Enabled</div>
             </div>
 
-            <div class="right-controls">
-                <!-- Date Range Filters -->
-                <select id="time-filter" class="glass-select">
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">Past Week</option>
-                    <option value="month">Past Month</option>
-                </select>
-
-                <!-- Visual Toggles -->
-                <div class="toggle-group">
-                    <button id="view-grid" class="view-btn active" title="Grid View">
-                        <span class="icon-grid"></span>
-                    </button>
-                    <button id="view-list" class="view-btn" title="List View">
-                        <span class="icon-list"></span>
-                    </button>
-                </div>
+            <div class="right-section">
+                <input type="text" id="search-input" placeholder="Search behavior..." autocomplete="off">
             </div>
         </header>
 
-        <!-- MAIN CANVAS -->
-        <main id="main-canvas">
-            <!-- Dynamic Content Injected Here -->
-            <div id="grid-container" class="grid-layout"></div>
-            <div id="empty-state" class="hidden">
-                <h2>No history found</h2>
-                <p>Your archive is clean.</p>
-            </div>
+        <!-- MAIN SCROLLABLE LIST -->
+        <!-- Native Chrome History style: Vertical list with Date Headers -->
+        <main id="history-container" class="history-list-view">
+            <!-- Dynamic content goes here -->
+
+            <!-- Infinite Scroll Sentinel (Invisible footer) -->
+            <div id="scroll-sentinel"></div>
         </main>
 
-        <!-- FLOATING ACTION DOCK (Appears on Selection) -->
+        <!-- SELECTION DOCK (Appears when using Lasso) -->
         <div id="action-dock" class="glass-dock hidden">
             <div class="selection-info">
                 <span id="selected-count">0</span>
@@ -62,29 +48,17 @@
             </div>
 
             <div class="dock-actions">
-                <button id="btn-cancel" class="dock-btn secondary">
-                    Cancel
-                </button>
+                <button id="btn-cancel" class="dock-btn secondary">Cancel</button>
                 <div class="divider"></div>
                 <button id="btn-delete" class="dock-btn danger">
-                    <span class="icon-trash"></span>
-                    Delete
+                    🗑️ Delete
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modules -->
+    <!-- Logic -->
     <script type="module" src="js/render.js"></script>
-    <script type="module" src="js/lasso.js"></script>
-
-    <!-- inline simple icon defs to avoid external deps -->
-    <script>
-        // Simple Icon Injector helper
-        document.querySelectorAll('.icon-trash').forEach(e => e.innerHTML = '🗑️'); // Fallback/Simple
-        document.querySelectorAll('.icon-grid').forEach(e => e.innerHTML = '⊞');
-        document.querySelectorAll('.icon-list').forEach(e => e.innerHTML = '☰');
-    </script>
 </body>
 
 </html>

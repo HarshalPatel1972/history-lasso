@@ -1,121 +1,124 @@
 /**
  * RENDER ENGINE (js/render.js)
- * Bridges Data Layer <-> UI <-> Lasso
+ * Handles Infinite Scroll Rendering & List View Logic modification
  */
 
-import { fetchAllHistory, deleteItems, deleteRange } from './data.js';
+import { HistoryLoader } from './data.js';
 import { initLasso } from './lasso.js';
 
-const grid = document.getElementById('grid-container');
-let globalHistory = [];
+const container = document.getElementById('history-container');
+const sentinel = document.getElementById('scroll-sentinel');
+const loader = new HistoryLoader();
 
-/**
- * ENTRY POINT
- */
+// State
+let currentDateGroup = null; // Tracks current date header to avoid duplicates
+
 async function init() {
-    console.log("Render: Booting...");
+    console.log("Render: Booting List View...");
+
+    // 1. Initial Load
+    await loadMoreItems();
+
+    // 2. Setup Infinite Scroll Observer
+    const observer = new IntersectionObserver(async (entries) => {
+        if (entries[0].isIntersecting) {
+            console.log("Render: Sentinel hit. Loading more...");
+            await loadMoreItems();
+        }
+    }, { rootMargin: '400px' });
     
-    // 1. Initial Data Fetch
-    await reloadData();
-    
-    // 2. Initialize Lasso with action callback
+    observer.observe(sentinel);
+
+    // 3. Init Lasso (Updated for list rows)
     initLasso(async (action, payload) => {
         if (action === 'delete') {
-             await deleteItems(payload); // Perform Delete
-             await reloadData();         // Re-render
+            await loader.deleteItems(payload); // from data.js
+            window.location.reload(); // Simple reload for list view to simplify state
         }
     });
 
-    // 3. UI Event Listeners
-    setupFilters();
+    // 4. Search
+    setupSearch();
 }
 
-async function reloadData(startTime = 0) {
-    try {
-        globalHistory = await fetchAllHistory(startTime);
-        renderGrid(globalHistory);
-    } catch (e) {
-        console.error("Render Failed:", e);
-    }
-}
-
-/**
- * Render Cards to Grid
- */
-function renderGrid(items) {
-    grid.innerHTML = '';
+async function loadMoreItems() {
+    const items = await loader.loadNextBatch(100);
     
-    if (!items || items.length === 0) {
-        document.getElementById('empty-state').classList.remove('hidden');
-        return;
-    } else {
-        document.getElementById('empty-state').classList.add('hidden');
-    }
+    // Convert to visual rows
+    renderList(items);
+}
 
+function renderList(items) {
     const frag = document.createDocumentFragment();
 
     items.forEach(item => {
-        const title = item.title || item.url;
-        // Simple Domain Parse
-        let domain = "web";
-        try { domain = new URL(item.url).hostname.replace('www.',''); } catch(e){}
-
-        const card = document.createElement('div');
-        card.className = 'history-card';
-        card.dataset.id = item.id;
-        card.dataset.url = item.url; // Critical for deletion
-
-        card.innerHTML = `
-            <div class="card-top">
-                <img src="_favicon/?pageUrl=${encodeURIComponent(item.url)}&size=32" class="card-icon" loading="lazy">
-                <span class="card-domain">${domain}</span>
-            </div>
-            <div class="card-title" title="${title}">${title}</div>
-            <div class="card-time">${new Date(item.lastVisitTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
-        `;
-        
-        // Navigation Click (only if NOT selecting)
-        card.addEventListener('click', (e) => {
-             // Let Lasso handle Ctrl/Shift or Drag interactions.
-             // We only navigate on a pure, clean click.
-             // (Logic simplified for MVP: If we have selections, don't nav)
-             const hasSelection = document.querySelectorAll('.history-card.selected').length > 0;
-             if (!hasSelection && !e.ctrlKey && !e.shiftKey) {
-                  window.location.href = item.url;
-             }
+        const dateObj = new Date(item.lastVisitTime);
+        const dateStr = dateObj.toLocaleDateString(undefined, {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
-        frag.appendChild(card);
+        // Date Header
+        if (dateStr !== currentDateGroup) {
+            const header = document.createElement('div');
+            header.className = 'date-header';
+            header.textContent = dateStr;
+            frag.appendChild(header);
+            currentDateGroup = dateStr;
+        }
+
+        // Row
+        const row = document.createElement('div');
+        row.className = 'history-row';
+        row.dataset.id = item.id;
+        row.dataset.url = item.url;
+        
+        // Navigation Logic
+        row.addEventListener('click', (e) => {
+            const hasSelection = document.querySelectorAll('.history-row.selected').length > 0;
+            if(!hasSelection && !e.ctrlKey && !e.shiftKey) {
+                window.location.href = item.url;
+            }
+        });
+
+        const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        let domain = "";
+        try { domain = new URL(item.url).hostname.replace('www.',''); } catch(e){}
+
+        row.innerHTML = `
+            <div class="row-checkbox"></div>
+            <div class="row-time">${timeStr}</div>
+            <img class="row-favicon" src="_favicon/?pageUrl=${encodeURIComponent(item.url)}&size=16" loading="lazy">
+            <div class="row-content">
+                <span class="row-title" title="${item.title}">${item.title || item.url}</span>
+                <span class="row-domain">${domain}</span>
+            </div>
+        `;
+
+        frag.appendChild(row);
     });
 
-    grid.appendChild(frag);
+    // Insert before sentinel (keep sentinel at bottom)
+    container.insertBefore(frag, sentinel);
 }
 
-function setupFilters() {
-    // Search
+function setupSearch() {
+    let timer;
     document.getElementById('search-input').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        const filtered = globalHistory.filter(h => 
-            (h.title && h.title.toLowerCase().includes(q)) || 
-            (h.url && h.url.toLowerCase().includes(q))
-        );
-        renderGrid(filtered);
-    });
-    
-    // Time Filter
-    document.getElementById('time-filter').addEventListener('change', async (e) => {
-        const val = e.target.value;
-        let start = 0;
-        const now = Date.now();
-        const day = 24*60*60*1000;
-        
-        if (val === 'today') start = now - day;
-        if (val === 'week') start = now - (7 * day);
-        if (val === 'month') start = now - (30 * day);
-        
-        await reloadData(start);
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            // Reset Rendering
+            currentDateGroup = null;
+            // Clear existing rows (but keep sentinel)
+            // Strategy: Remove everything except sentinel
+            while(container.firstChild && container.firstChild !== sentinel) {
+                container.removeChild(container.firstChild);
+            }
+            
+            // Reset Loader
+            loader.reset(e.target.value);
+            loadMoreItems();
+        }, 300);
     });
 }
 
-// Start
 init();

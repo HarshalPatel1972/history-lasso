@@ -1,68 +1,86 @@
 /**
  * DATA LAYER (js/data.js)
- * Responsible for Chrome API interactions (Fetch, Delete).
- * Designed for reliability and bulk operations.
+ * Implements Infinite Scroll via "Cursor-based Fetching".
  */
 
-const MAX_RESULTS = 15000; // Increased to ensure deep archives are fetched
+export class HistoryLoader {
+    constructor() {
+        this.cursorTime = Date.now(); // Start fetching from NOW
+        this.isFinished = false;      // True if Chrome says no more items
+        this.isLoading = false;
+        // Search specific
+        this.searchQuery = '';
+    }
 
-/**
- * Fetch ALL history items from the past
- * @param {number} startTime - specific timestamp to filter from (optional)
- * @returns {Promise<Array>}
- */
-export async function fetchAllHistory(startTime = 0, endTime = Date.now()) {
-    console.log(`Data Layer: Fetching items from ${new Date(startTime).toLocaleString()} to ${new Date(endTime).toLocaleString()}`);
-    
-    return new Promise((resolve, reject) => {
-        chrome.history.search({
-            text: '', 
-            startTime: startTime,
-            endTime: endTime,
-            maxResults: MAX_RESULTS
-        }, (results) => {
-            if (chrome.runtime.lastError) {
-                console.error(chrome.runtime.lastError);
-                reject(chrome.runtime.lastError);
-            } else {
-                console.log(`Data Layer: Successfully fetched ${results.length} items`);
+    /**
+     * Resets the loader (e.g. when user types new search)
+     */
+    reset(query = '') {
+        this.cursorTime = Date.now();
+        this.isFinished = false;
+        this.searchQuery = query;
+        this.isLoading = false;
+        console.log("HistoryLoader: Reset. Query:", query);
+    }
+
+    /**
+     * Fetches the next batch of simple history items.
+     * @param {number} pageSize 
+     * @returns {Promise<Array>}
+     */
+    async loadNextBatch(pageSize = 100) {
+        if (this.isFinished || this.isLoading) return [];
+
+        this.isLoading = true;
+
+        return new Promise((resolve) => {
+            console.log(`HistoryLoader: Fetching batch from ${this.cursorTime}...`);
+
+            chrome.history.search({
+                text: this.searchQuery || '',
+                endTime: this.cursorTime,
+                maxResults: pageSize
+            }, (results) => {
+                this.isLoading = false;
+
+                if (!results || results.length === 0) {
+                    this.isFinished = true;
+                    resolve([]);
+                    return;
+                }
+
+                // IMPORTANT: Chrome API might return the same item if timestamps match exactly.
+                // We should theoretically handle deduping, but usually strictly decrementing time works.
+                
+                // Update cursor to the timestamp of the LAST item
+                const lastItem = results[results.length - 1];
+                
+                // If the last item's time is same as cursor, just subtract 1ms to avoid loop
+                if (lastItem.lastVisitTime >= this.cursorTime) {
+                   this.cursorTime = lastItem.lastVisitTime - 1; 
+                } else {
+                   this.cursorTime = lastItem.lastVisitTime;
+                }
+
+                
+                // If we got fewer than requested, we are likely done
+                if (results.length < pageSize) {
+                    this.isFinished = true;
+                }
+
                 resolve(results);
-            }
+            });
         });
-    });
-}
+    }
 
-/**
- * Delete a list of URLs
- * @param {Array<string>} urls 
- * @returns {Promise<void>}
- */
-export async function deleteItems(urls) {
-    if (!urls || urls.length === 0) return;
-    
-    console.log(`Data Layer: Deleting ${urls.length} items...`);
-    
-    const promises = urls.map(url => {
-        return new Promise(resolve => {
-            chrome.history.deleteUrl({ url: url }, () => resolve());
+    /**
+     * Deletes a specific set of URLs
+     */
+    async deleteItems(urls) {
+        if(!urls || urls.length===0) return;
+        const promises = urls.map(url => {
+            return new Promise(r => chrome.history.deleteUrl({url}, r));
         });
-    });
-
-    await Promise.all(promises);
-    console.log("Data Layer: Deletion complete.");
-}
-
-/**
- * Hard Nuke: Delete range
- */
-export async function deleteRange(startTime, endTime) {
-    return new Promise(resolve => {
-        chrome.history.deleteRange({
-            startTime: startTime,
-            endTime: endTime
-        }, () => {
-            console.log("Data Layer: Range Deleted.");
-            resolve();
-        });
-    });
+        await Promise.all(promises);
+    }
 }
