@@ -219,7 +219,11 @@ function cancelSelection() {
 /**
  * DELETE & ACTIONS
  */
+/**
+ * DELETE & ACTIONS
+ */
 function setupActions() {
+    // Delete Selected
     document.getElementById('btn-delete').addEventListener('click', async () => {
         const selected = document.querySelectorAll('.history-row.selected');
         const urls = Array.from(selected).map(el => el.dataset.url);
@@ -227,11 +231,107 @@ function setupActions() {
         if (urls.length > 0) {
             if(confirm(`Delete ${urls.length} items?`)) {
                 await loader.deleteItems(urls);
-                // Simple Refresh to show accurate state
                 window.location.reload();
             }
         }
     });
+
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        cancelSelection();
+        if(selectoInstance) selectoInstance.setSelectedTargets([]);
+    });
+
+    // --- DATE RANGE FEATURE (Start/End Date) ---
+    const btnDate = document.getElementById('btn-date');
+    btnDate.addEventListener('click', async () => {
+        // Step 1: Get Start Date
+        const startStr = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+        if (!startStr) return;
+        
+        // Step 2: Get End Date
+        const endStr = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+        if (!endStr) return;
+
+        const startTime = new Date(startStr).getTime();
+        // End date should be end of that day (23:59:59) to be inclusive
+        const endTime = new Date(endStr).setHours(23, 59, 59, 999);
+
+        if (isNaN(startTime) || isNaN(endTime)) {
+            alert("Invalid date format. Please use YYYY-MM-DD.");
+            return;
+        }
+
+        if (confirm(`Delete all history from ${startStr} to ${endStr}?`)) {
+            chrome.history.deleteRange({ startTime, endTime }, () => {
+                 alert("History range deleted.");
+                 window.location.reload();
+            });
+        }
+    });
+
+    // --- GROUP BY SITE FEATURE ---
+    const btnGroup = document.getElementById('btn-group');
+    let isGroupMode = false;
+
+    btnGroup.addEventListener('click', async () => {
+        if (isGroupMode) {
+            window.location.reload(); 
+            return;
+        }
+
+        isGroupMode = true;
+        btnGroup.classList.add('active');
+        btnGroup.innerHTML = "🏢 List View";
+
+        container.innerHTML = '<div style="padding:20px; text-align:center;">Analyzing history clusters...</div>';
+        
+        const items = await loader.loadNextBatch(5000); 
+        
+        const groups = {};
+        items.forEach(item => {
+            let domain = "unknown";
+            try { domain = new URL(item.url).hostname.replace('www.', ''); } catch(e){}
+            if (!groups[domain]) groups[domain] = [];
+            groups[domain].push(item);
+        });
+
+        const sortedDomains = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length);
+
+        container.innerHTML = '';
+
+        sortedDomains.forEach(domain => {
+            const count = groups[domain].length;
+            if (count < 2) return; 
+
+            const groupEl = document.createElement('div');
+            groupEl.className = 'history-row';
+            groupEl.style.justifyContent = 'space-between';
+            groupEl.style.cursor = 'pointer';
+            
+            groupEl.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="_favicon/?pageUrl=https://${domain}&size=16" style="width:16px;height:16px;">
+                    <span style="font-weight:600; font-size:14px;">${domain}</span>
+                    <span style="color:var(--text-secondary); font-size:12px;">(${count} items)</span>
+                </div>
+                <button class="pill-btn danger" style="padding:4px 10px; font-size:11px;">Delete All</button>
+            `;
+
+            groupEl.querySelector('button').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if(confirm(`Delete all ${count} visits to ${domain}?`)) {
+                    const urls = groups[domain].map(i => i.url);
+                    await loader.deleteItems(urls);
+                    groupEl.remove();
+                }
+            });
+
+            container.appendChild(groupEl);
+        });
+
+        if(sentinel) sentinel.style.display = 'none';
+    });
 }
+
 
 init();

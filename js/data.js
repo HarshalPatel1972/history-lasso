@@ -34,11 +34,12 @@ export class HistoryLoader {
         this.isLoading = true;
 
         return new Promise((resolve) => {
-            console.log(`HistoryLoader: Fetching batch from ${this.cursorTime}...`);
+            console.log(`HistoryLoader: Fetching batch ending at ${this.cursorTime}...`);
 
             chrome.history.search({
                 text: this.searchQuery || '',
                 endTime: this.cursorTime,
+                startTime: 0, // CRITICAL: Default is 24hrs ago. 0 means "The Big Bang"
                 maxResults: pageSize
             }, (results) => {
                 this.isLoading = false;
