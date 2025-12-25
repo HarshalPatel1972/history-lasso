@@ -1,6 +1,6 @@
 /**
  * APP ENGINE (js/app.js)
- * The logic core for the Universal Minimalist History Dashboard.
+ * High-performance Infinite Scroll & Minimalist Logic.
  */
 
 import { HistoryLoader } from './data.js';
@@ -11,7 +11,7 @@ let selectoInstance = null;
 let isLassoActive = false;
 let lastDateHeader = null;
 
-// --- DOM ELEMENTS ---
+// --- DOM ---
 const container = document.getElementById('history-container');
 const sentinel = document.getElementById('scroll-sentinel');
 const searchInput = document.getElementById('search-input');
@@ -20,20 +20,23 @@ const selectionCount = document.getElementById('selection-count');
 const btnLasso = document.getElementById('btn-lasso');
 
 /**
- * INIT
+ * ENTRY POINT
  */
 async function init() {
-    console.log("App: Booting Universal Minimalist UI...");
+    console.log("App: Initializing Minimalist Dashboard...");
 
-    // 1. Load Initial Data
+    // 1. Initial Data
     await loadNextBatch();
 
     // 2. Infinite Scroll Observer
+    // We observe the sentinel at the bottom. When visible, load more.
     const observer = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
+            console.log("App: Scroll Sentinel hit. Loading more...");
             loadNextBatch();
         }
-    }, { rootMargin: '400px' });
+    }, { root: null, rootMargin: '400px', threshold: 0.1 }); // Load well before bottom
+    
     observer.observe(sentinel);
 
     // 3. Setup Listeners
@@ -43,7 +46,7 @@ async function init() {
 }
 
 /**
- * DATA FETCHING & RENDERING
+ * FETCH & RENDER
  */
 async function loadNextBatch() {
     const items = await loader.loadNextBatch(100);
@@ -51,10 +54,12 @@ async function loadNextBatch() {
 }
 
 function renderRows(items) {
+    if (!items || items.length === 0) return;
+
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {
-        // Date Grouping
+        // Simple Date Grouping
         const dateObj = new Date(item.lastVisitTime);
         const dateStr = dateObj.toLocaleDateString(undefined, { 
             weekday: 'long', month: 'long', day: 'numeric' 
@@ -68,7 +73,7 @@ function renderRows(items) {
             lastDateHeader = dateStr;
         }
 
-        // Row Content
+        // Row Element
         const row = document.createElement('div');
         row.className = 'history-row';
         row.dataset.id = item.id; 
@@ -76,10 +81,11 @@ function renderRows(items) {
         
         let domain = "";
         try { domain = new URL(item.url).hostname.replace('www.', ''); } catch(e){}
+        const timeStr = dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
         row.innerHTML = `
             <div class="checkbox"></div>
-            <span class="time">${dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+            <span class="time">${timeStr}</span>
             <img class="favicon" src="_favicon/?pageUrl=${encodeURIComponent(item.url)}&size=16" loading="lazy">
             <div class="content">
                 <span class="title">${item.title || item.url}</span>
@@ -87,9 +93,22 @@ function renderRows(items) {
             </div>
         `;
 
-        // Click to Open (Unless Lasso is ON)
+        // Click Handler: Toggle Selection vs Navigation
         row.addEventListener('click', (e) => {
-             if (!isLassoActive && !e.ctrlKey && !e.shiftKey) {
+             // If clicking Checkbox directly, toggle selection
+             if (e.target.closest('.checkbox')) {
+                 toggleRowSelection(row);
+                 return;
+             }
+             
+             // If Lasso Mode is ON, clicking row toggles selection
+             if (isLassoActive) {
+                 toggleRowSelection(row);
+                 return;
+             }
+
+             // Normal Mode: Navigate (Ctrl+Click opens in new tab natively)
+             if (!e.ctrlKey && !e.shiftKey && !e.metaKey) {
                  window.location.href = item.url;
              }
         });
@@ -97,24 +116,28 @@ function renderRows(items) {
         fragment.appendChild(row);
     });
 
+    // Insert before sentinel to maintain scroll position capability
     container.insertBefore(fragment, sentinel);
 }
 
+function toggleRowSelection(row) {
+    row.classList.toggle('selected');
+    updateSelectionState();
+}
+
 /**
- * SEARCH LOGIC
+ * SEARCH
  */
 function setupSearch() {
     let timer;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-            // Hard Reset
             lastDateHeader = null;
-            // Remove all rows (keep sentinel)
-            while(container.firstChild && container.firstChild !== sentinel) {
-                container.removeChild(container.firstChild);
+            // Clear content but keep sentinel
+            while(container.children.length > 1) { 
+                container.removeChild(container.firstChild); 
             }
-            // Reset Loader
             loader.reset(e.target.value);
             loadNextBatch();
         }, 300);
@@ -122,70 +145,64 @@ function setupSearch() {
 }
 
 /**
- * LASSO TOGGLE LOGIC
+ * LASSO
  */
 function setupLassoToggle() {
-    // Determine container for Selecto
-    // It scans the whole list.
-    
-    // Create Selecto (Paused state initially)
+    // Init Selecto for Drag functionality
     selectoInstance = new Selecto({
         container: document.body,
         dragContainer: '#history-container',
         selectableTargets: ['.history-row'],
         hitRate: 0,
-        selectByClick: true,
+        selectByClick: false, // We handle click manually for hybrid feel
         selectFromInside: false,
         toggleInside: true,
         ratio: 0,
     });
-    
-    // Destroy immediately so it's not active by default
+    // Immediately disable
     selectoInstance.destroy();
 
-    // The Toggle Button
     btnLasso.addEventListener('click', () => {
         isLassoActive = !isLassoActive;
 
         if (isLassoActive) {
-            // ACTIVATE
             btnLasso.classList.add('active');
-            btnLasso.textContent = "🖱️ Lasso: ON";
-            
-            // Re-instantiate Selecto
+            btnLasso.innerHTML = "🖱️ Lasso: ON";
+            // Re-activate Selecto
             selectoInstance = new Selecto({
                 container: document.body,
                 dragContainer: '#history-container',
                 selectableTargets: ['.history-row'],
                 hitRate: 0,
-                selectByClick: true,
+                selectByClick: false, // Let our click listener handle singular taps
                 selectFromInside: false,
                 toggleInside: true,
                 ratio: 0,
             });
-            
-            // Bind Events
             selectoInstance.on("select", e => {
                 e.added.forEach(el => el.classList.add("selected"));
                 e.removed.forEach(el => el.classList.remove("selected"));
                 updateSelectionState();
             });
-
         } else {
-            // DEACTIVATE
             btnLasso.classList.remove('active');
-            btnLasso.textContent = "🖱️ Lasso";
-            
+            btnLasso.innerHTML = "🖱️ Lasso";
             cancelSelection();
             if(selectoInstance) selectoInstance.destroy();
         }
     });
+
+    // Cancel Button
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        cancelSelection();
+        // If in Lasso mode, we keep Lasso mode ON but clear selection? 
+        // Or turn off? User probably just wants to de-select.
+        if (selectoInstance) selectoInstance.setSelectedTargets([]);
+    });
 }
 
 function updateSelectionState() {
-    const selected = document.querySelectorAll('.history-row.selected');
-    const count = selected.length;
-    
+    const count = document.querySelectorAll('.history-row.selected').length;
     if (count > 0) {
         selectionBar.classList.remove('hidden');
         selectionCount.textContent = `${count} Selected`;
@@ -200,34 +217,21 @@ function cancelSelection() {
 }
 
 /**
- * ACTIONS (Delete, etc)
+ * DELETE & ACTIONS
  */
 function setupActions() {
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-        cancelSelection();
-        if(selectoInstance) selectoInstance.setSelectedTargets([]);
-    });
-
     document.getElementById('btn-delete').addEventListener('click', async () => {
         const selected = document.querySelectorAll('.history-row.selected');
         const urls = Array.from(selected).map(el => el.dataset.url);
         
         if (urls.length > 0) {
-            const btn = document.getElementById('btn-delete');
-            btn.textContent = "Deleting...";
-            await loader.deleteItems(urls);
-            window.location.reload(); 
+            if(confirm(`Delete ${urls.length} items?`)) {
+                await loader.deleteItems(urls);
+                // Simple Refresh to show accurate state
+                window.location.reload();
+            }
         }
-    });
-
-    // Date Range / Group Placeholders
-    document.getElementById('btn-date').addEventListener('click', () => {
-        alert("Date Range Picker would appear here.");
-    });
-    document.getElementById('btn-group').addEventListener('click', () => {
-        alert("Switching to 'Folders' view...");
     });
 }
 
-// Start
 init();

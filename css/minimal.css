@@ -3,13 +3,14 @@
 :root {
     /* Auto Light/Dark Mode Variables */
     --bg-page: #ffffff;
-    --bg-header: rgba(255, 255, 255, 0.85);
+    --bg-header: rgba(255, 255, 255, 0.95);
     --text-primary: #111111;
     --text-secondary: #757575;
     --border-subtle: rgba(0,0,0,0.08);
     --hover-bg: #f5f5f5;
     --accent: #2196f3;
     --accent-light: rgba(33, 150, 243, 0.1);
+    --selection-bg: #e3f2fd;
     --danger: #ff3b30;
     
     --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -18,12 +19,13 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --bg-page: #1a1a1a;
-        --bg-header: rgba(26, 26, 26, 0.85);
+        --bg-header: rgba(26, 26, 26, 0.95);
         --text-primary: #ffffff;
         --text-secondary: #a0a0a0;
         --border-subtle: rgba(255,255,255,0.08);
         --hover-bg: #2a2a2a;
         --accent: #4dabf5;
+        --selection-bg: rgba(77, 171, 245, 0.2);
     }
 }
 
@@ -35,7 +37,7 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Scroll happens in <main> */
+    overflow: hidden; 
 }
 
 /* --- HEADER --- */
@@ -44,7 +46,6 @@ body {
     border-bottom: 1px solid var(--border-subtle);
     background: var(--bg-header);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     position: relative; 
     z-index: 100;
     flex-shrink: 0;
@@ -67,7 +68,6 @@ body {
     letter-spacing: -0.5px;
 }
 
-/* Search */
 #search-input {
     background: var(--hover-bg);
     border: 1px solid transparent;
@@ -85,7 +85,6 @@ body {
     box-shadow: 0 0 0 3px var(--accent-light);
 }
 
-/* Buttons */
 .toolbar-area {
     display: flex;
     gap: 8px;
@@ -101,18 +100,44 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
+    position: relative; /* For tooltip */
 }
 .pill-btn:hover {
     background: var(--hover-bg);
     color: var(--text-primary);
+    border-color: var(--text-secondary);
 }
-
-/* Active State (Lasso On) */
 .pill-btn.active {
     background: var(--accent);
     color: white;
     border-color: var(--accent);
     box-shadow: 0 2px 6px var(--accent-light);
+}
+
+/* --- CSS TOOLTIPS --- */
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: #333;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 200;
+    opacity: 0;
+    animation: fadeIn 0.2s forwards;
+    pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+     [data-tooltip]:hover::after { background: #eee; color: #111; }
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; transform: translateX(-50%) translateY(4px); }
 }
 
 /* --- LIST VIEW --- */
@@ -126,7 +151,7 @@ body {
 }
 
 .date-header {
-    padding: 24px 24px 8px 24px;
+    padding: 24px 24px 8px 36px;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -140,63 +165,71 @@ body {
     padding: 10px 24px;
     gap: 16px;
     border-radius: 8px;
-    margin: 0 12px; /* Slight inset look */
+    margin: 0 12px;
     cursor: default;
     transition: background 0.1s;
+    user-select: none;
 }
-.history-row:hover {
-    background-color: var(--hover-bg);
-}
+.history-row:hover { background-color: var(--hover-bg); }
 
+/* Selected State */
 .history-row.selected {
-    background-color: var(--accent-light);
+    background-color: var(--selection-bg);
 }
 
-/* Checkbox */
+/* Checkbox Styling */
 .checkbox {
-    width: 16px; height: 16px;
+    width: 18px; height: 18px;
     border: 2px solid var(--border-subtle);
     border-radius: 4px;
     flex-shrink: 0;
+    position: relative;
+    transition: all 0.1s;
 }
+.history-row:hover .checkbox { border-color: var(--text-secondary); }
+
 .history-row.selected .checkbox {
     background: var(--accent);
     border-color: var(--accent);
+    box-shadow: inset 0 0 0 2px var(--bg-page);
+}
+/* Fake Checkmark */
+.history-row.selected .checkbox::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 5px;
+    width: 4px; height: 8px;
+    border-right: 2px solid white;
+    border-bottom: 2px solid white;
+    transform: rotate(45deg);
 }
 
-.time { font-size: 13px; color: var(--text-secondary); width: 60px; font-feature-settings: "tnum"; }
+.time { font-size: 13px; color: var(--text-secondary); width: 60px; font-variant-numeric: tabular-nums; }
 .favicon { width: 16px; height: 16px; border-radius: 3px; }
 .content { flex: 1; display: flex; gap: 10px; align-items: center; overflow: hidden; }
-.title { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px; }
 .domain { font-size: 13px; color: var(--text-secondary); }
 
-/* --- SELECTION BAR --- */
+/* Anchor Links */
+.js-link { cursor: pointer; }
+.js-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* Selection Bar */
 .selection-bar {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: var(--bg-header); /* Cover main header */
+    background: var(--bg-header);
     backdrop-filter: blur(20px);
     display: flex; 
     align-items: center; 
     justify-content: space-between;
     padding: 0 24px;
-    max-width: 1000px; margin: 0 auto; /* Match content width */
+    max-width: 1000px; margin: 0 auto;
 }
 .selection-bar.hidden { display: none; }
-
 #selection-count { font-weight: 600; font-size: 15px; color: var(--accent); }
 
-.pill-btn.danger {
-    color: var(--danger);
-    border-color: rgba(255, 59, 48, 0.3);
-}
-.pill-btn.danger:hover {
-    background: var(--danger);
-    color: white;
-}
-.text-btn { background: none; border: none; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
-
-/* Selecto Lasso Visuals */
+/* Lasso Highlight */
 .selecto-selection {
     background: var(--accent-light) !important;
     border: 1px solid var(--accent) !important;

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>History</title>
+    <!-- Use the new Minimal Stylesheet -->
     <link rel="stylesheet" href="css/minimal.css">
     <script src="lib/selecto.min.js"></script>
 </head>
@@ -23,13 +24,13 @@
             </div>
 
             <div class="toolbar-area">
-                <button class="pill-btn" id="btn-date">
+                <button class="pill-btn" id="btn-date" data-tooltip="Filter by Date Range">
                     📅 Date
                 </button>
-                <button class="pill-btn" id="btn-group">
+                <button class="pill-btn" id="btn-group" data-tooltip="View by Website Domain">
                     🏢 Group
                 </button>
-                <button class="pill-btn toggle" id="btn-lasso">
+                <button class="pill-btn toggle" id="btn-lasso" data-tooltip="Enable Drag-to-Select">
                     🖱️ Lasso
                 </button>
             </div>
@@ -39,16 +40,19 @@
         <div id="selection-bar" class="selection-bar hidden">
             <span id="selection-count">0 Selected</span>
             <div class="actions">
-                <button class="text-btn" id="btn-cancel">Cancel</button>
-                <button class="pill-btn danger" id="btn-delete">Delete</button>
+                <button class="pill-btn" id="btn-cancel">Cancel</button>
+                <button class="pill-btn danger" id="btn-delete" data-tooltip="Permanently Delete Items">
+                    Delete Selected
+                </button>
             </div>
         </div>
     </header>
 
     <!-- INFINITE SCROLL LIST -->
+    <!-- Note: padding-bottom ensures scrolling past the dock -->
     <main class="list-container" id="history-container">
-        <!-- Sentinel for IntersectionObserver -->
-        <div id="scroll-sentinel"></div>
+        <!-- Sentinel for IntersectionObserver (Must be last) -->
+        <div id="scroll-sentinel" style="height: 20px; width: 100%;"></div>
     </main>
 
     <!-- Logic -->
