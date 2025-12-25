@@ -1,73 +1,68 @@
 /**
- * ACTION ENGINE
- * Handles user actions: Deletion, Clearing Selection.
+ * DATA LAYER (js/data.js)
+ * Responsible for Chrome API interactions (Fetch, Delete).
+ * Designed for reliability and bulk operations.
  */
 
-import { clearSelection } from './lasso.js';
+const MAX_RESULTS = 15000; // Increased to ensure deep archives are fetched
 
-export function initActions() {
-    console.log("Action Engine: Initializing...");
+/**
+ * Fetch ALL history items from the past
+ * @param {number} startTime - specific timestamp to filter from (optional)
+ * @returns {Promise<Array>}
+ */
+export async function fetchAllHistory(startTime = 0, endTime = Date.now()) {
+    console.log(`Data Layer: Fetching items from ${new Date(startTime).toLocaleString()} to ${new Date(endTime).toLocaleString()}`);
     
-    // Delete Button
-    const deleteBtn = document.getElementById('delete-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', deleteSelected);
-    }
-
-    // Cancel / Clear Selection Button
-    const clearBtn = document.getElementById('clear-selection-btn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', clearSelection);
-    }
+    return new Promise((resolve, reject) => {
+        chrome.history.search({
+            text: '', 
+            startTime: startTime,
+            endTime: endTime,
+            maxResults: MAX_RESULTS
+        }, (results) => {
+            if (chrome.runtime.lastError) {
+                console.error(chrome.runtime.lastError);
+                reject(chrome.runtime.lastError);
+            } else {
+                console.log(`Data Layer: Successfully fetched ${results.length} items`);
+                resolve(results);
+            }
+        });
+    });
 }
 
 /**
- * Delete all selected history items
+ * Delete a list of URLs
+ * @param {Array<string>} urls 
+ * @returns {Promise<void>}
  */
-async function deleteSelected() {
-    const selectedEls = document.querySelectorAll('.history-card.selected');
-    const count = selectedEls.length;
-
-    if (count === 0) return;
-
-    const confirmed = confirm(`Are you sure you want to delete ${count} history items? This cannot be undone.`);
-    if (!confirmed) return;
-
-    // 1. Gather URLs
-    const urlsToDelete = [];
-    selectedEls.forEach(el => {
-        const url = el.dataset.url;
-        if (url) urlsToDelete.push(url);
+export async function deleteItems(urls) {
+    if (!urls || urls.length === 0) return;
+    
+    console.log(`Data Layer: Deleting ${urls.length} items...`);
+    
+    const promises = urls.map(url => {
+        return new Promise(resolve => {
+            chrome.history.deleteUrl({ url: url }, () => resolve());
+        });
     });
 
-    // 2. Perform Deletion
-    // We do this individually or in batches. deleteUrl takes one at a time.
-    let successCount = 0;
-    
-    // UI Feedback: Show loading state or processing
-    const deleteBtn = document.getElementById('delete-btn');
-    const originalText = deleteBtn.innerHTML;
-    deleteBtn.textContent = "Deleting...";
-
-    try {
-        const deletePromises = urlsToDelete.map(url => {
-            return chrome.history.deleteUrl({ url: url });
-        });
-
-        await Promise.all(deletePromises);
-        
-        // 3. Update UI
-        selectedEls.forEach(el => el.remove());
-        clearSelection(); // Hide bar
-        
-        console.log(`Successfully deleted ${urlsToDelete.length} items`);
-
-    } catch (e) {
-        alert("An error occurred while deleting. Some items may not have been deleted.");
-        console.error("Delete Error:", e);
-    } finally {
-        deleteBtn.innerHTML = originalText;
-    }
+    await Promise.all(promises);
+    console.log("Data Layer: Deletion complete.");
 }
 
-initActions();
+/**
+ * Hard Nuke: Delete range
+ */
+export async function deleteRange(startTime, endTime) {
+    return new Promise(resolve => {
+        chrome.history.deleteRange({
+            startTime: startTime,
+            endTime: endTime
+        }, () => {
+            console.log("Data Layer: Range Deleted.");
+            resolve();
+        });
+    });
+}

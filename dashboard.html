@@ -4,54 +4,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>History Lasso</title>
+    <title>History</title>
     <link rel="stylesheet" href="css/style.css">
-    <!-- Load Selecto from local lib -->
     <script src="lib/selecto.min.js"></script>
 </head>
 
 <body>
 
-    <div id="app-container">
-        <!-- Header / Filters -->
-        <header class="glass-panel">
-            <div class="logo">
-                <i class="ph ph-lasso"></i>
-                <h1>History Lasso</h1>
+    <div id="app">
+        <!-- TOP CONTROL BAR -->
+        <header class="glass-header">
+            <div class="brand">
+                <div class="logo-icon lasso-icon"></div>
+                <span class="brand-text">History Lasso</span>
             </div>
-            <div class="controls">
-                <div class="search-bar">
-                    <i class="ph ph-magnifying-glass"></i>
-                    <input type="text" id="search-input" placeholder="Search history..." autocomplete="off">
-                </div>
-                <select id="date-filter" class="glass-input">
+
+            <div class="center-controls">
+                <input type="text" id="search-input" placeholder="Search archive..." autocomplete="off">
+            </div>
+
+            <div class="right-controls">
+                <!-- Date Range Filters -->
+                <select id="time-filter" class="glass-select">
                     <option value="all">All Time</option>
-                    <option value="24h">Last 24 Hours</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
+                    <option value="today">Today</option>
+                    <option value="week">Past Week</option>
+                    <option value="month">Past Month</option>
                 </select>
-                <div class="divider-vertical"></div>
-                <button id="group-domain-btn" class="icon-btn" title="Toggle View (List/Grid)">
-                    <i class="ph ph-squares-four"></i>
-                </button>
-                <button id="refresh-btn" class="icon-btn" title="Refresh">
-                    <i class="ph ph-arrow-clockwise"></i>
-                </button>
+
+                <!-- Visual Toggles -->
+                <div class="toggle-group">
+                    <button id="view-grid" class="view-btn active" title="Grid View">
+                        <span class="icon-grid"></span>
+                    </button>
+                    <button id="view-list" class="view-btn" title="List View">
+                        <span class="icon-list"></span>
+                    </button>
+                </div>
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <main id="history-grid" class="grid-view">
-            <!-- History Cards will be injected here -->
+        <!-- MAIN CANVAS -->
+        <main id="main-canvas">
+            <!-- Dynamic Content Injected Here -->
+            <div id="grid-container" class="grid-layout"></div>
+            <div id="empty-state" class="hidden">
+                <h2>No history found</h2>
+                <p>Your archive is clean.</p>
+            </div>
         </main>
 
-        <!-- Floating Action Bar (Hidden by default, shown on selection) -->
-        <div id="action-bar" class="glass-panel floating-bar hidden">
-            <span id="selection-count">0 items selected</span>
-            <div class="actions">
-                <button id="clear-selection-btn" class="secondary-btn">Cancel</button>
-                <button id="delete-btn" class="danger-btn">
-                    <i class="ph ph-trash"></i> Delete Selected
+        <!-- FLOATING ACTION DOCK (Appears on Selection) -->
+        <div id="action-dock" class="glass-dock hidden">
+            <div class="selection-info">
+                <span id="selected-count">0</span>
+                <span class="label">selected</span>
+            </div>
+
+            <div class="dock-actions">
+                <button id="btn-cancel" class="dock-btn secondary">
+                    Cancel
+                </button>
+                <div class="divider"></div>
+                <button id="btn-delete" class="dock-btn danger">
+                    <span class="icon-trash"></span>
+                    Delete
                 </button>
             </div>
         </div>
@@ -60,7 +77,14 @@
     <!-- Modules -->
     <script type="module" src="js/render.js"></script>
     <script type="module" src="js/lasso.js"></script>
-    <script type="module" src="js/actions.js"></script>
+
+    <!-- inline simple icon defs to avoid external deps -->
+    <script>
+        // Simple Icon Injector helper
+        document.querySelectorAll('.icon-trash').forEach(e => e.innerHTML = '🗑️'); // Fallback/Simple
+        document.querySelectorAll('.icon-grid').forEach(e => e.innerHTML = '⊞');
+        document.querySelectorAll('.icon-list').forEach(e => e.innerHTML = '☰');
+    </script>
 </body>
 
 </html>

@@ -1,64 +1,70 @@
 /**
- * LASSO ENGINE
- * Handles drag-to-select functionality using Selecto.js
+ * LASSO ENGINE (js/lasso.js)
+ * High-performance drag-selection logic.
  */
 
-export let selectoInstance = null;
+export function initLasso(renderCallback) {
+    console.log("Lasso Engine: Initializing...");
 
-export function initLasso() {
-    if (selectoInstance) selectoInstance.destroy();
+    // Selection State
+    let selectedIds = new Set();
+    const actionDock = document.getElementById('action-dock');
+    const countLabel = document.getElementById('selected-count');
 
-    const container = document.body;
-    const dragContainer = document.getElementById('history-grid');
-
-    if (typeof Selecto === 'undefined') {
-        console.warn("Selecto not found");
-        return;
-    }
-
-    selectoInstance = new Selecto({
-        // The container to allow dragging in
-        container: container,
-        // The area where the scroll happens and items live
-        dragContainer: '#history-grid',
-        // Example targets
+    // Init Selecto
+    const selecto = new Selecto({
+        container: document.body,
+        dragContainer: '#main-canvas',
         selectableTargets: ['.history-card'],
-        // Algorithm
         hitRate: 0,
-        selectByClick: false, // We use Click for navigation, unless Ctrl is held (handled manually or by Selecto config)
-        selectFromInside: false, 
+        selectByClick: false,
+        selectFromInside: false,
         toggleInside: true,
         ratio: 0,
     });
 
     // Events
-    selectoInstance.on("select", e => {
-        e.added.forEach(el => el.classList.add("selected"));
-        e.removed.forEach(el => el.classList.remove("selected"));
-        updateUI(e.selected);
+    selecto.on("select", e => {
+        e.added.forEach(el => {
+            el.classList.add("selected");
+            selectedIds.add(el.dataset.id);
+        });
+        e.removed.forEach(el => {
+            el.classList.remove("selected");
+            selectedIds.delete(el.dataset.id);
+        });
+        updateDock();
     });
-}
 
-function updateUI(selectedElements) {
-    const actionBar = document.getElementById('action-bar');
-    const countSpan = document.getElementById('selection-count');
-    
-    // Find all currently selected (Selecto event gives delta/all, but we can query DOM for truth)
-    const allSelected = document.querySelectorAll('.history-card.selected');
-    
-    if (allSelected.length > 0) {
-        actionBar.classList.remove('hidden');
-        countSpan.textContent = `${allSelected.length} items selected`;
-    } else {
-        actionBar.classList.add('hidden');
+    function updateDock() {
+        const count = selectedIds.size;
+        countLabel.textContent = count;
+        
+        if (count > 0) actionDock.classList.remove('hidden');
+        else actionDock.classList.add('hidden');
     }
-}
 
-export function clearSelection() {
-    if (selectoInstance) {
-        selectoInstance.setSelectedTargets([]);
-    }
-    const allSelected = document.querySelectorAll('.history-card.selected');
-    allSelected.forEach(el => el.classList.remove('selected'));
-    updateUI([]);
+    // Cancel Button
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        selecto.setSelectedTargets([]);
+        document.querySelectorAll('.history-card.selected').forEach(el => el.classList.remove('selected'));
+        selectedIds.clear();
+        updateDock();
+    });
+
+    // Delete Button Logic Hook
+    document.getElementById('btn-delete').addEventListener('click', async () => {
+        // Find URLs of selected items
+        const selectedEls = document.querySelectorAll('.history-card.selected');
+        const urls = Array.from(selectedEls).map(el => el.dataset.url);
+
+        // Call External Render Callback (which bridges Data Layer)
+        if (renderCallback) {
+             await renderCallback('delete', urls);
+             // Clear state after delete
+             selecto.setSelectedTargets([]);
+             selectedIds.clear();
+             updateDock();
+        }
+    });
 }
