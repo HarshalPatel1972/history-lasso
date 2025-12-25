@@ -26,6 +26,7 @@ async function init() {
     console.log("App: Initializing Minimalist Dashboard...");
 
     // 1. Initial Data
+    lastDateHeader = null; // FORCE RESET
     await loadNextBatch();
 
     // 2. Infinite Scroll Observer
@@ -80,12 +81,27 @@ function renderRows(items) {
             dateStr = "Yesterday - " + baseDateStr;
         }
 
-        if (dateStr !== lastDateHeader) {
-            const header = document.createElement('div');
-            header.className = 'date-header';
-            header.textContent = dateStr;
-            fragment.appendChild(header);
-            lastDateHeader = dateStr;
+        if (dateStr.trim() !== lastDateHeader) {
+            // DOUBLE CHECK: Avoid printing if the VERY LAST element in container is ALREADY this header
+            // This handles cases where loadNextBatch might be called rapidly
+            const lastChild = container.lastElementChild;
+            const isSentinel = lastChild && lastChild.id === 'scroll-sentinel';
+            const realLastChild = isSentinel ? lastChild.previousElementSibling : lastChild;
+
+            let alreadyExists = false;
+            if (realLastChild && realLastChild.classList.contains('date-header')) {
+                if (realLastChild.textContent.trim() === dateStr.trim()) {
+                    alreadyExists = true;
+                }
+            }
+
+            if (!alreadyExists) {
+                const header = document.createElement('div');
+                header.className = 'date-header';
+                header.textContent = dateStr;
+                fragment.appendChild(header);
+                lastDateHeader = dateStr;
+            }
         }
 
         // Row Element
